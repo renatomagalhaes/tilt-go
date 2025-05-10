@@ -1,36 +1,44 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-server
-  labels:
-    app: api-server
+  name: api
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: api-server
+      app: api
   template:
     metadata:
       labels:
-        app: api-server
+        app: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
-      - name: api-server
-        image: api-server:latest
+      - name: api
+        image: api:latest
         ports:
         - containerPort: 8080
-        env:
-        - name: PORT
-          value: "8080"
+          name: metrics
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: api-server
+  name: api-service
 spec:
   selector:
-    app: api-server
+    app: api
   ports:
-  - port: 80
+  - port: 8080
     targetPort: 8080
+    name: metrics
   type: LoadBalancer 

@@ -4,40 +4,38 @@ load('ext://restart_process', 'docker_build_with_restart')
 # Allow Tilt to use either Minikube or Docker Desktop ('minikube', 'docker-desktop')
 allow_k8s_contexts('docker-desktop')
 
-# API Server
+# Build and deploy API
 docker_build_with_restart(
-    'api-server',
-    './api',
+    'api',
+    'api',
     dockerfile='api/Dockerfile',
-    entrypoint=['./api-server'],
+    entrypoint=['./main'],
     live_update=[
-        sync('./api', '/app'),
-        run('cd /app && go mod init github.com/yourusername/tilt-go/api || true'),
+        sync('api', '/app'),
         run('cd /app && go mod tidy'),
-        run('cd /app && CGO_ENABLED=0 GOOS=linux go build -o api-server'),
+        run('cd /app && go build -o main .')
     ]
 )
-
 k8s_yaml('k8s/api.yaml')
-k8s_resource('api-server', port_forwards=8080)
+k8s_resource('api')
 
-# Worker
+# Build and deploy Worker
 docker_build_with_restart(
     'worker',
-    './worker',
+    'worker',
     dockerfile='worker/Dockerfile',
-    entrypoint=['./worker'],
+    entrypoint=['./main'],
     live_update=[
-        sync('./worker', '/app'),
-        run('cd /app && go mod init github.com/yourusername/tilt-go/worker || true'),
+        sync('worker', '/app'),
         run('cd /app && go mod tidy'),
-        run('cd /app && CGO_ENABLED=0 GOOS=linux go build -o worker'),
+        run('cd /app && go build -o main .')
     ]
 )
-
 k8s_yaml('k8s/worker.yaml')
 k8s_resource('worker')
 
-# Enable live updates for both services
-k8s_resource('api-server', labels=['api'])
-k8s_resource('worker', labels=['worker']) 
+# Deploy observability stack
+k8s_yaml('k8s/observability/prometheus.yaml')
+k8s_yaml('k8s/observability/grafana.yaml')
+k8s_resource('prometheus')
+k8s_resource('grafana') 

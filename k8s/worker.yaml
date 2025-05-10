@@ -13,7 +13,32 @@ spec:
     metadata:
       labels:
         app: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: worker
-        image: worker:latest 
+        image: worker:latest
+        ports:
+        - containerPort: 8081
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+spec:
+  selector:
+    app: worker
+  ports:
+  - port: 8081
+    targetPort: 8081
+  type: LoadBalancer 
