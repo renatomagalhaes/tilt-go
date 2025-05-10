@@ -1,4 +1,4 @@
-.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt
+.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt all run
 
 # Check if Tilt is installed
 check-tilt:
@@ -68,4 +68,39 @@ help:
 	@echo "  make clean       - Clean build artifacts and temporary files"
 	@echo "  make build       - Build both services"
 	@echo "  make test        - Run tests"
-	@echo "  make help        - Show this help message" 
+	@echo "  make help        - Show this help message"
+
+all: build
+
+run:
+	@echo "Running API..."
+	cd api && go run main.go
+	@echo "Running Worker..."
+	cd worker && go run main.go
+
+observability-up:
+	@echo "Starting observability stack..."
+	kubectl apply -f k8s/observability/prometheus.yaml
+	kubectl apply -f k8s/observability/grafana.yaml
+	kubectl apply -f k8s/observability/elasticsearch.yaml
+	kubectl apply -f k8s/observability/kibana.yaml
+	kubectl apply -f k8s/observability/jaeger.yaml
+	@echo "Waiting for services to be ready..."
+	kubectl wait --for=condition=available --timeout=300s deployment/prometheus
+	kubectl wait --for=condition=available --timeout=300s deployment/grafana
+	kubectl wait --for=condition=available --timeout=300s statefulset/elasticsearch
+	kubectl wait --for=condition=available --timeout=300s deployment/kibana
+	kubectl wait --for=condition=available --timeout=300s deployment/jaeger
+	@echo "Observability stack is ready!"
+	@echo "Prometheus: http://localhost:9090"
+	@echo "Grafana: http://localhost:3000 (admin/admin)"
+	@echo "Kibana: http://localhost:5601"
+	@echo "Jaeger: http://localhost:16686"
+
+observability-down:
+	@echo "Stopping observability stack..."
+	kubectl delete -f k8s/observability/jaeger.yaml
+	kubectl delete -f k8s/observability/kibana.yaml
+	kubectl delete -f k8s/observability/elasticsearch.yaml
+	kubectl delete -f k8s/observability/grafana.yaml
+	kubectl delete -f k8s/observability/prometheus.yaml 

@@ -1,67 +1,32 @@
-# Tilt.dev Kubernetes Example
+# Tilt Go Project
 
-This project demonstrates how to use Tilt.dev for local Kubernetes development with a simple Go application. The application consists of two components:
-
-1. **API Server**: A simple Hello World HTTP server
-2. **Worker**: A background worker that runs a task every 5 minutes
-
-## Project Structure
-
-```
-.
-├── api/                 # API server code
-│   ├── main.go         # API server implementation
-│   └── Dockerfile      # API server container definition
-├── worker/             # Worker code
-│   ├── main.go         # Worker implementation
-│   └── Dockerfile      # Worker container definition
-├── k8s/                # Kubernetes manifests
-│   ├── api.yaml        # API server deployment
-│   └── worker.yaml     # Worker deployment
-├── Makefile           # Build and development commands
-├── .gitignore         # Git ignore rules
-├── Tiltfile           # Tilt.dev configuration
-└── README.md          # Project documentation
-```
+A Go application with API and Worker components, managed with Tilt.dev for local Kubernetes development.
 
 ## Prerequisites
 
-- Go 1.16 or later
+- Go 1.21 or later
 - Docker
+- Tilt
 - Kubernetes cluster (local or remote)
-- Tilt.dev CLI
 
 ## Local Kubernetes Setup
 
-You have two options for running Kubernetes locally:
-
-### Option 1: Docker Desktop with Kubernetes
-
-1. Install Docker Desktop from [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
-2. Open Docker Desktop
-3. Go to Settings > Kubernetes
-4. Enable Kubernetes
-5. Click "Apply & Restart"
-6. Wait for Kubernetes to start
-
-### Option 2: Minikube
-
-1. Install Minikube:
+### Option 1: Docker Desktop
+1. Install Docker Desktop
+2. Enable Kubernetes in Docker Desktop settings
+3. Wait for the cluster to start
+4. Verify with:
    ```bash
-   # For Linux
-   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-   sudo install minikube-linux-amd64 /usr/local/bin/minikube
-
-   # For macOS
-   brew install minikube
+   kubectl cluster-info
    ```
 
-2. Start Minikube:
+### Option 2: Minikube
+1. Install Minikube
+2. Start the cluster:
    ```bash
    minikube start
    ```
-
-3. Verify installation:
+3. Verify with:
    ```bash
    kubectl cluster-info
    ```
@@ -69,38 +34,51 @@ You have two options for running Kubernetes locally:
 ## Lens - Kubernetes IDE
 
 Lens is a powerful IDE for managing Kubernetes clusters. It provides a user-friendly interface for:
-- Monitoring pods, deployments, and services
-- Viewing logs
-- Managing resources
-- Debugging applications
+- Viewing and managing pods, services, and deployments
+- Real-time logs and metrics
+- Terminal access to containers
+- Resource monitoring
 
-### Installing Lens
-
-1. Download Lens from [https://k8slens.dev/](https://k8slens.dev/)
+### Installation
+1. Download Lens from [lens.dev](https://k8slens.dev/)
 2. Install and launch Lens
-3. Add your cluster:
-   - For Docker Desktop: It should be automatically detected
-   - For Minikube: Add the kubeconfig from `~/.kube/config`
+3. Add your local cluster:
+   - For Docker Desktop: Use the kubeconfig from `~/.kube/config`
+   - For Minikube: Use `minikube kubeconfig`
 
-### Using Lens with this Project
+## Observability Stack
 
-1. Open Lens
-2. Connect to your local cluster
-3. Navigate to the "Workloads" section
-4. You should see:
-   - `api-server` deployment and service
-   - `worker` deployment
-5. Click on any resource to:
-   - View logs
-   - Monitor metrics
-   - Check pod status
-   - Access the terminal
+The project includes a complete observability stack for monitoring and debugging:
 
-## Getting Started
+### Components
+- **Prometheus**: Metrics collection and storage
+- **Grafana**: Metrics visualization and dashboards
+- **Elasticsearch**: Log storage and search
+- **Kibana**: Log visualization and analysis
+- **Jaeger**: Distributed tracing
 
-1. Install Tilt.dev:
+### Usage
+1. Start the stack:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
+   make observability-up
+   ```
+
+2. Access the tools:
+   - Prometheus: http://localhost:9090
+   - Grafana: http://localhost:3000 (admin/admin)
+   - Kibana: http://localhost:5601
+   - Jaeger: http://localhost:16686
+
+3. Stop the stack:
+   ```bash
+   make observability-down
+   ```
+
+## Development
+
+1. Install dependencies:
+   ```bash
+   make install-tilt
    ```
 
 2. Start the development environment:
@@ -108,43 +86,42 @@ Lens is a powerful IDE for managing Kubernetes clusters. It provides a user-frie
    make tilt-up
    ```
 
-## How it Works
+3. Access the services:
+   - API: http://localhost:8080
+   - Worker: Running in the background
 
-### API Server
-The API server is a simple HTTP server that responds with "Hello, World!" on the root endpoint.
+4. Stop the development environment:
+   ```bash
+   make tilt-down
+   ```
 
-### Worker
-The worker is a background process that runs a task every 5 minutes. It demonstrates how to use cron-like functionality in a Kubernetes pod.
+## Project Structure
 
-### Tilt.dev Configuration
-The `Tiltfile` configures how Tilt.dev manages the development environment:
-- Watches for file changes
-- Builds Docker images
-- Deploys to Kubernetes
-- Provides live updates
-
-## Development
-
-1. Make changes to the code
-2. Tilt.dev will automatically:
-   - Rebuild the affected containers
-   - Deploy the changes to Kubernetes
-   - Show logs and status in the Tilt.dev UI
-
-## Accessing the Application
-
-- API Server: http://localhost:8080
-- Worker logs: Available in the Tilt.dev UI or Lens
-- Kubernetes Dashboard: Available through Lens
+```
+.
+├── api/                    # API service
+│   ├── Dockerfile
+│   ├── go.mod
+│   ├── go.sum
+│   ├── main.go
+│   └── k8s/               # Kubernetes manifests
+├── worker/                # Worker service
+│   ├── Dockerfile
+│   ├── go.mod
+│   ├── go.sum
+│   ├── main.go
+│   └── k8s/              # Kubernetes manifests
+├── k8s/                   # Shared Kubernetes manifests
+│   └── observability/    # Observability stack manifests
+├── Tiltfile              # Tilt configuration
+├── Makefile              # Build and development commands
+└── README.md
+```
 
 ## Author
 
-**Renato Magalhães**
+Renato Magalhães
 
 ## Repository
 
-This project is hosted at: [https://github.com/renatomagalhaes/tilt-go](https://github.com/renatomagalhaes/tilt-go)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+https://github.com/renatomagalhaes/tilt-goseguindo 
