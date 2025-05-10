@@ -54,6 +54,8 @@ data:
       "id": 1,
       "uid": "app-metrics",
       "title": "Application Metrics",
+      "description": "Métricas detalhadas da aplicação Go",
+      "tags": ["go", "application"],
       "links": [],
       "liveNow": false,
       "panels": [
@@ -104,6 +106,10 @@ data:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
                   }
                 ]
               },
@@ -120,14 +126,14 @@ data:
           "id": 1,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -136,9 +142,18 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "rate(process_cpu_seconds_total{job=~\"kubernetes-pods|api-service|worker-service\"}[5m]) * 100",
-              "legendFormat": "CPU Usage - {{pod}}",
+              "expr": "rate(process_cpu_seconds_total{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"api-.*\"}[5m]) * 100",
+              "legendFormat": "API Pod [{{kubernetes_pod_name}}]",
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(process_cpu_seconds_total{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"worker-.*\"}[5m]) * 100",
+              "legendFormat": "Worker Pod [{{kubernetes_pod_name}}]",
+              "refId": "B"
             }
           ],
           "title": "CPU Usage by Pod",
@@ -191,6 +206,10 @@ data:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
                   }
                 ]
               },
@@ -207,14 +226,14 @@ data:
           "id": 2,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -223,9 +242,18 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "process_resident_memory_bytes{job=~\"kubernetes-pods|api-service|worker-service\"}",
-              "legendFormat": "Memory Usage - {{pod}}",
+              "expr": "process_resident_memory_bytes{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"api-.*\"}",
+              "legendFormat": "API Pod [{{kubernetes_pod_name}}]",
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "process_resident_memory_bytes{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"worker-.*\"}",
+              "legendFormat": "Worker Pod [{{kubernetes_pod_name}}]",
+              "refId": "B"
             }
           ],
           "title": "Memory Usage by Pod",
@@ -293,14 +321,14 @@ data:
           "id": 3,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -309,9 +337,18 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "go_goroutines{job=~\"kubernetes-pods|api-service|worker-service\"}",
-              "legendFormat": "Goroutines - {{pod}}",
+              "expr": "go_goroutines{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"api-.*\"}",
+              "legendFormat": "API Pod [{{kubernetes_pod_name}}]",
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "go_goroutines{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"worker-.*\"}",
+              "legendFormat": "Worker Pod [{{kubernetes_pod_name}}]",
+              "refId": "B"
             }
           ],
           "title": "Goroutines Count",
@@ -380,14 +417,14 @@ data:
           "id": 4,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -396,9 +433,18 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "go_memstats_alloc_bytes{job=~\"kubernetes-pods|api-service|worker-service\"}",
-              "legendFormat": "Memory Allocated - {{pod}}",
+              "expr": "go_memstats_alloc_bytes{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"api-.*\"}",
+              "legendFormat": "API Pod [{{kubernetes_pod_name}}]",
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "go_memstats_alloc_bytes{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"worker-.*\"}",
+              "legendFormat": "Worker Pod [{{kubernetes_pod_name}}]",
+              "refId": "B"
             }
           ],
           "title": "Go Memory Allocated",
@@ -466,14 +512,14 @@ data:
           "id": 5,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -482,9 +528,18 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "rate(go_gc_duration_seconds_sum{job=~\"kubernetes-pods|api-service|worker-service\"}[5m])",
-              "legendFormat": "GC Duration - {{pod}}",
+              "expr": "rate(go_gc_duration_seconds_sum{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"api-.*\"}[5m])",
+              "legendFormat": "API Pod [{{kubernetes_pod_name}}]",
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(go_gc_duration_seconds_sum{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"worker-.*\"}[5m])",
+              "legendFormat": "Worker Pod [{{kubernetes_pod_name}}]",
+              "refId": "B"
             }
           ],
           "title": "GC Duration",
@@ -552,14 +607,14 @@ data:
           "id": 6,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -568,9 +623,18 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "rate(go_gc_duration_seconds_count{job=~\"kubernetes-pods|api-service|worker-service\"}[5m])",
-              "legendFormat": "GC Count - {{pod}}",
+              "expr": "rate(go_gc_duration_seconds_count{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"api-.*\"}[5m])",
+              "legendFormat": "API Pod [{{kubernetes_pod_name}}]",
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(go_gc_duration_seconds_count{job=~\"kubernetes-pods\", kubernetes_pod_name=~\"worker-.*\"}[5m])",
+              "legendFormat": "Worker Pod [{{kubernetes_pod_name}}]",
+              "refId": "B"
             }
           ],
           "title": "GC Count",
@@ -580,7 +644,7 @@ data:
       "refresh": "5s",
       "schemaVersion": 38,
       "style": "dark",
-      "tags": [],
+      "tags": ["go", "application"],
       "templating": {
         "list": []
       },
@@ -593,7 +657,7 @@ data:
       "version": 1,
       "weekStart": ""
     }
-  worker-metrics.json: |-
+  kubernetes-metrics.json: |-
     {
       "annotations": {
         "list": []
@@ -601,6 +665,11 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
+      "id": 2,
+      "uid": "k8s-metrics",
+      "title": "Kubernetes Metrics",
+      "description": "Métricas do cluster Kubernetes",
+      "tags": ["kubernetes", "cluster"],
       "links": [],
       "liveNow": false,
       "panels": [
@@ -666,14 +735,14 @@ data:
           "id": 1,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -682,12 +751,184 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "rate(tasks_processed_total{job=~\"kubernetes-pods|worker-service\"}[5m])",
-              "legendFormat": "Tasks Processed Rate - {{pod}}",
+              "expr": "kube_deployment_status_replicas{deployment=\"api\"}",
+              "legendFormat": "Replicas - {{deployment}}",
               "refId": "A"
             }
           ],
-          "title": "Task Processing Rate",
+          "title": "API Deployment Replicas",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 2,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "kube_horizontalpodautoscaler_status_current_replicas{hpa=\"api-hpa\"}",
+              "legendFormat": "HPA Current Replicas - {{hpa}}",
+              "refId": "A"
+            }
+          ],
+          "title": "HPA Current Replicas",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 8
+          },
+          "id": 3,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "kube_pod_container_resource_requests{container=\"api\", resource=\"cpu\"}",
+              "legendFormat": "CPU Request - {{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "CPU Requests by Pod",
           "type": "timeseries"
         },
         {
@@ -740,7 +981,7 @@ data:
                   }
                 ]
               },
-              "unit": "s"
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -748,19 +989,19 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 0
+            "y": 8
           },
-          "id": 2,
+          "id": 4,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
-              "mode": "single",
-              "sort": "none"
+              "mode": "multi",
+              "sort": "desc"
             }
           },
           "targets": [
@@ -769,30 +1010,28 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "rate(task_duration_seconds_sum{job=~\"kubernetes-pods|worker-service\"}[5m]) / rate(task_duration_seconds_count{job=~\"kubernetes-pods|worker-service\"}[5m])",
-              "legendFormat": "Average Task Duration - {{pod}}",
+              "expr": "kube_pod_container_resource_requests{container=\"api\", resource=\"memory\"}",
+              "legendFormat": "Memory Request - {{pod}}",
               "refId": "A"
             }
           ],
-          "title": "Task Processing Duration",
+          "title": "Memory Requests by Pod",
           "type": "timeseries"
         }
       ],
       "refresh": "5s",
       "schemaVersion": 38,
       "style": "dark",
-      "tags": [],
+      "tags": ["kubernetes", "cluster"],
       "templating": {
         "list": []
       },
       "time": {
-        "from": "now-15m",
+        "from": "now-1h",
         "to": "now"
       },
       "timepicker": {},
       "timezone": "",
-      "title": "Worker Metrics",
-      "uid": "worker-metrics",
       "version": 1,
       "weekStart": ""
     }
