@@ -1,12 +1,10 @@
-.PHONY: init tilt-up tilt-down clean build test
+.PHONY: tilt-up tilt-down clean build test install-tilt help
 
-# Initialize the project
-init:
-	@echo "Initializing Git repository..."
-	git init
-	git add .
-	git commit -m "Initial commit"
-	@echo "Repository initialized successfully!"
+# Install Tilt.dev
+install-tilt:
+	@echo "Installing Tilt.dev..."
+	curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
+	@echo "Tilt.dev installed successfully!"
 
 # Start Tilt development environment
 tilt-up:
@@ -18,34 +16,36 @@ tilt-down:
 	@echo "Stopping Tilt development environment..."
 	tilt down
 
-# Clean build artifacts
+# Clean build artifacts and temporary files
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -f api/api-server
 	rm -f worker/worker
+	rm -rf api/vendor
+	rm -rf worker/vendor
 	@echo "Clean completed!"
 
 # Build both services
 build:
 	@echo "Building services..."
-	cd api && go build -o api-server
-	cd worker && go build -o worker
+	cd api && go mod tidy && go build -o api-server
+	cd worker && go mod tidy && go build -o worker
 	@echo "Build completed!"
 
 # Run tests
 test:
 	@echo "Running tests..."
-	cd api && go test ./...
-	cd worker && go test ./...
+	cd api && go test -v ./...
+	cd worker && go test -v ./...
 	@echo "Tests completed!"
 
 # Help command
 help:
 	@echo "Available commands:"
-	@echo "  make init      - Initialize Git repository"
-	@echo "  make tilt-up   - Start Tilt development environment"
-	@echo "  make tilt-down - Stop Tilt development environment"
-	@echo "  make clean     - Clean build artifacts"
-	@echo "  make build     - Build both services"
-	@echo "  make test      - Run tests"
-	@echo "  make help      - Show this help message" 
+	@echo "  make install-tilt - Install Tilt.dev"
+	@echo "  make tilt-up     - Start Tilt development environment"
+	@echo "  make tilt-down   - Stop Tilt development environment"
+	@echo "  make clean       - Clean build artifacts and temporary files"
+	@echo "  make build       - Build both services"
+	@echo "  make test        - Run tests"
+	@echo "  make help        - Show this help message" 
