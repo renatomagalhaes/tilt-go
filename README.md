@@ -18,8 +18,10 @@ This project demonstrates how to use Tilt.dev for local Kubernetes development w
 ├── k8s/                # Kubernetes manifests
 │   ├── api.yaml        # API server deployment
 │   └── worker.yaml     # Worker deployment
-├── Tiltfile            # Tilt.dev configuration
-└── README.md           # This file
+├── Makefile           # Build and development commands
+├── .gitignore         # Git ignore rules
+├── Tiltfile           # Tilt.dev configuration
+└── README.md          # Project documentation
 ```
 
 ## Prerequisites
@@ -28,6 +30,71 @@ This project demonstrates how to use Tilt.dev for local Kubernetes development w
 - Docker
 - Kubernetes cluster (local or remote)
 - Tilt.dev CLI
+
+## Local Kubernetes Setup
+
+You have two options for running Kubernetes locally:
+
+### Option 1: Docker Desktop with Kubernetes
+
+1. Install Docker Desktop from [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+2. Open Docker Desktop
+3. Go to Settings > Kubernetes
+4. Enable Kubernetes
+5. Click "Apply & Restart"
+6. Wait for Kubernetes to start
+
+### Option 2: Minikube
+
+1. Install Minikube:
+   ```bash
+   # For Linux
+   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+   sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+   # For macOS
+   brew install minikube
+   ```
+
+2. Start Minikube:
+   ```bash
+   minikube start
+   ```
+
+3. Verify installation:
+   ```bash
+   kubectl cluster-info
+   ```
+
+## Lens - Kubernetes IDE
+
+Lens is a powerful IDE for managing Kubernetes clusters. It provides a user-friendly interface for:
+- Monitoring pods, deployments, and services
+- Viewing logs
+- Managing resources
+- Debugging applications
+
+### Installing Lens
+
+1. Download Lens from [https://k8slens.dev/](https://k8slens.dev/)
+2. Install and launch Lens
+3. Add your cluster:
+   - For Docker Desktop: It should be automatically detected
+   - For Minikube: Add the kubeconfig from `~/.kube/config`
+
+### Using Lens with this Project
+
+1. Open Lens
+2. Connect to your local cluster
+3. Navigate to the "Workloads" section
+4. You should see:
+   - `api-server` deployment and service
+   - `worker` deployment
+5. Click on any resource to:
+   - View logs
+   - Monitor metrics
+   - Check pod status
+   - Access the terminal
 
 ## Getting Started
 
@@ -38,7 +105,7 @@ This project demonstrates how to use Tilt.dev for local Kubernetes development w
 
 2. Start the development environment:
    ```bash
-   tilt up
+   make tilt-up
    ```
 
 ## How it Works
@@ -67,4 +134,17 @@ The `Tiltfile` configures how Tilt.dev manages the development environment:
 ## Accessing the Application
 
 - API Server: http://localhost:8080
-- Worker logs: Available in the Tilt.dev UI 
+- Worker logs: Available in the Tilt.dev UI or Lens
+- Kubernetes Dashboard: Available through Lens
+
+## Author
+
+**Renato Magalhães**
+
+## Repository
+
+This project is hosted at: [https://github.com/renatomagalhaes/tilt-go](https://github.com/renatomagalhaes/tilt-go)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
