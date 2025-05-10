@@ -1,4 +1,4 @@
-.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt all run
+.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt all run load-test metrics-server-up metrics-server-down
 
 # Check if Tilt is installed
 check-tilt:
@@ -103,4 +103,31 @@ observability-down:
 	kubectl delete -f k8s/observability/kibana.yaml
 	kubectl delete -f k8s/observability/elasticsearch.yaml
 	kubectl delete -f k8s/observability/grafana.yaml
-	kubectl delete -f k8s/observability/prometheus.yaml 
+	kubectl delete -f k8s/observability/prometheus.yaml
+
+# Check if hey is installed
+check-hey:
+	@if ! command -v hey &> /dev/null; then \
+		echo "hey is not installed. Installing now..."; \
+		go install github.com/rakyll/hey@latest; \
+		echo "hey installed successfully!"; \
+	else \
+		echo "hey is already installed."; \
+	fi
+
+load-test: check-hey
+	@echo "Iniciando teste de carga..."
+	@bash scripts/load-test.sh
+
+metrics-server-up:
+	@echo "Installing Metrics Server..."
+	kubectl apply -f k8s/observability/metrics-server-auth.yaml
+	kubectl apply -f k8s/observability/metrics-server.yaml
+	@echo "Waiting for Metrics Server to be ready..."
+	kubectl wait --for=condition=available --timeout=300s deployment/metrics-server -n kube-system
+	@echo "Metrics Server is ready!"
+
+metrics-server-down:
+	@echo "Removing Metrics Server..."
+	kubectl delete -f k8s/observability/metrics-server.yaml
+	kubectl delete -f k8s/observability/metrics-server-auth.yaml 
