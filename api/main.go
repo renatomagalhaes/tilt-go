@@ -17,7 +17,7 @@ func main() {
 
 	// Define handler for root endpoint
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, World!")
+		fmt.Fprintf(w, "Hello, World Tilt!")
 	})
 
 	// Start server
@@ -25,4 +25,4 @@ func main() {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-} 
+}

@@ -16,7 +16,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o api-server
 
 # Final stage
-FROM alpine:latest
+FROM golang:1.21-alpine
 
 WORKDIR /app
 

@@ -12,7 +12,9 @@ docker_build_with_restart(
     entrypoint=['./api-server'],
     live_update=[
         sync('./api', '/app'),
-        run('go build -o api-server'),
+        run('cd /app && go mod init github.com/yourusername/tilt-go/api || true'),
+        run('cd /app && go mod tidy'),
+        run('cd /app && CGO_ENABLED=0 GOOS=linux go build -o api-server'),
     ]
 )
 
@@ -27,7 +29,9 @@ docker_build_with_restart(
     entrypoint=['./worker'],
     live_update=[
         sync('./worker', '/app'),
-        run('go build -o worker'),
+        run('cd /app && go mod init github.com/yourusername/tilt-go/worker || true'),
+        run('cd /app && go mod tidy'),
+        run('cd /app && CGO_ENABLED=0 GOOS=linux go build -o worker'),
     ]
 )
 
