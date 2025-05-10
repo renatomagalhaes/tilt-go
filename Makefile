@@ -1,4 +1,14 @@
-.PHONY: tilt-up tilt-down clean build test install-tilt help
+.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt
+
+# Check if Tilt is installed
+check-tilt:
+	@if ! command -v tilt &> /dev/null; then \
+		echo "Tilt is not installed. Installing now..."; \
+		curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash; \
+		echo "Tilt installed successfully!"; \
+	else \
+		echo "Tilt is already installed."; \
+	fi
 
 # Install Tilt.dev
 install-tilt:
@@ -7,14 +17,24 @@ install-tilt:
 	@echo "Tilt.dev installed successfully!"
 
 # Start Tilt development environment
-tilt-up:
+tilt-up: check-tilt
 	@echo "Starting Tilt development environment..."
-	tilt up
+	@if command -v tilt &> /dev/null; then \
+		tilt up; \
+	else \
+		echo "Error: Tilt command not found. Please run 'make install-tilt' first."; \
+		exit 1; \
+	fi
 
 # Stop Tilt development environment
-tilt-down:
+tilt-down: check-tilt
 	@echo "Stopping Tilt development environment..."
-	tilt down
+	@if command -v tilt &> /dev/null; then \
+		tilt down; \
+	else \
+		echo "Error: Tilt command not found. Please run 'make install-tilt' first."; \
+		exit 1; \
+	fi
 
 # Clean build artifacts and temporary files
 clean:
