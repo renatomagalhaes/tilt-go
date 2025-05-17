@@ -1,4 +1,4 @@
-# Tilt.dev Kubernetes Example
+# Tilt.dev Kubernetes Example com Golang
 
 Este projeto demonstra como usar Tilt.dev para desenvolvimento local com Kubernetes usando Go. A aplicação consiste em dois componentes:
 
@@ -25,7 +25,7 @@ Este projeto demonstra como usar Tilt.dev para desenvolvimento local com Kuberne
 
 ## Pré-requisitos
 
-- Go 1.21 ou superior
+- Go 1.23.0 ou superior (toolchain 1.23.1)
 - Docker
 - Kubernetes (local ou remoto)
 - Tilt.dev CLI
@@ -104,6 +104,65 @@ minikube start
 # Verificar status
 minikube status
 ```
+
+## Tilt.dev com Golang
+
+O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em Kubernetes. Com Golang, ele oferece:
+
+1. **Live Reload**: Atualiza automaticamente os containers quando há mudanças no código
+2. **Build Otimizado**: Utiliza cache de camadas do Docker para builds mais rápidos
+3. **Logs em Tempo Real**: Mostra logs dos containers em tempo real
+4. **Deploy Automático**: Faz deploy das alterações no Kubernetes automaticamente
+
+### Como Funciona
+
+1. O Tiltfile configura:
+   - Quais arquivos monitorar para mudanças
+   - Como construir as imagens Docker
+   - Como fazer deploy no Kubernetes
+   - Como expor os serviços
+
+2. Quando você faz uma alteração:
+   - Tilt detecta a mudança
+   - Reconstrói apenas o container afetado
+   - Faz deploy da nova versão
+   - Atualiza os logs em tempo real
+
+## Iniciando o Projeto
+
+1. Instale o Tilt:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
+   ```
+
+2. Inicie o ambiente:
+   ```bash
+   make tilt-up
+   ```
+
+## Acessando a Aplicação
+
+- API Server: http://localhost:8080
+- Health Check API: http://localhost:8080/health
+- Health Check Worker: http://localhost:8081/health
+- Healthz Endpoints (usados pelos probes):
+  - API: http://localhost:8080/healthz
+  - Worker: http://localhost:8081/healthz
+- Logs: Disponíveis no terminal do Tilt
+
+## Características da Aplicação
+
+### API Server
+- Servidor HTTP com logs estruturados usando Zap
+- Endpoint de health check (`/health`) e probe (`/healthz`)
+- Logs em formato JSON com timestamp em UTC-3
+
+### Worker
+- Processo em background com agendamento
+- Executa tarefa a cada minuto (configurável)
+- Logs estruturados com Zap
+- Timestamp em UTC-3 (horário de Brasília)
+- Endpoint de health check (`/health`) e probe (`/healthz`) em um pequeno servidor HTTP dedicado
 
 ## Probes do Kubernetes
 
@@ -197,65 +256,6 @@ A aplicação expõe endpoints de saúde seguindo as melhores práticas do Kuber
   - Retorna informações detalhadas sobre a saúde da aplicação
   - Pode ser usado para monitoramento externo
   - Não é usado pelos probes do Kubernetes
-
-## Tilt.dev com Golang
-
-O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em Kubernetes. Com Golang, ele oferece:
-
-1. **Live Reload**: Atualiza automaticamente os containers quando há mudanças no código
-2. **Build Otimizado**: Utiliza cache de camadas do Docker para builds mais rápidos
-3. **Logs em Tempo Real**: Mostra logs dos containers em tempo real
-4. **Deploy Automático**: Faz deploy das alterações no Kubernetes automaticamente
-
-### Como Funciona
-
-1. O Tiltfile configura:
-   - Quais arquivos monitorar para mudanças
-   - Como construir as imagens Docker
-   - Como fazer deploy no Kubernetes
-   - Como expor os serviços
-
-2. Quando você faz uma alteração:
-   - Tilt detecta a mudança
-   - Reconstrói apenas o container afetado
-   - Faz deploy da nova versão
-   - Atualiza os logs em tempo real
-
-## Iniciando o Projeto
-
-1. Instale o Tilt:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
-   ```
-
-2. Inicie o ambiente:
-   ```bash
-   make tilt-up
-   ```
-
-## Acessando a Aplicação
-
-- API Server: http://localhost:8080
-- Health Check API: http://localhost:8080/health
-- Health Check Worker: http://localhost:8081/health
-- Healthz Endpoints (usados pelos probes):
-  - API: http://localhost:8080/healthz
-  - Worker: http://localhost:8081/healthz
-- Logs: Disponíveis no terminal do Tilt
-
-## Características da Aplicação
-
-### API Server
-- Servidor HTTP com logs estruturados usando Zap
-- Endpoint de health check (`/health`) e probe (`/healthz`)
-- Logs em formato JSON com timestamp em UTC-3
-
-### Worker
-- Processo em background com agendamento
-- Executa tarefa a cada minuto (configurável)
-- Logs estruturados com Zap
-- Timestamp em UTC-3 (horário de Brasília)
-- Endpoint de health check (`/health`) e probe (`/healthz`) em um pequeno servidor HTTP dedicado
 
 ## Autor
 
