@@ -101,6 +101,15 @@ A rota `/quotes/random` na API utiliza logging estruturado (JSON) via `go.uber.o
 
 Este padrão de logging facilita a análise e monitoramento do comportamento da API.
 
+### Controle de Nível de Logging
+
+Tanto a API quanto o Worker utilizam logging estruturado com níveis controlados por uma variável de ambiente:
+
+*   Para habilitar logs de nível `DEBUG` (mais verbosos, úteis para análise detalhada e desenvolvimento), defina a variável de ambiente `DEBUG_LOGGING=true`.
+*   Por padrão, sem esta variável definida, os serviços logarão no nível `INFO` (resumos de operações importantes e erros), ideal para ambientes de produção ou com menos verbosidade necessária.
+
+Logs de nível `ERROR` sempre serão exibidos, independentemente da configuração de `DEBUG_LOGGING`.
+
 ### Acesso Direto às Dependências (Host)
 
 Os serviços Docker Compose são mapeados para `localhost`:

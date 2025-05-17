@@ -15,7 +15,12 @@ install-tilt: check-tilt
 # Start development environment
 tilt-up: install-tilt
 	@echo "Iniciando ambiente de desenvolvimento na porta 10351..."
-	@tilt up --debug --port 10351
+	@tilt up --port 10351
+
+# Start development environment with debug logging
+tilt-up-debug: install-tilt
+	@echo "Iniciando ambiente de desenvolvimento com logs de debug na porta 10351..."
+	@DEBUG_LOGGING=true tilt up --debug --port 10351
 
 # Stop development environment
 tilt-down:
@@ -62,7 +67,8 @@ clean:
 # Help command
 help:
 	@echo "Comandos disponíveis:"
-	@echo "  make tilt-up          - Inicia o ambiente de desenvolvimento"
+	@echo "  make tilt-up          - Inicia o ambiente de desenvolvimento (logs INFO)"
+	@echo "  make tilt-up-debug    - Inicia o ambiente de desenvolvimento (logs DEBUG)"
 	@echo "  make tilt-down        - Para o ambiente de desenvolvimento"
 	@echo "  make build           - Compila a aplicação"
 	@echo "  make test            - Executa os testes"
