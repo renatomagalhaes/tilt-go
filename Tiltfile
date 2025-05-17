@@ -28,10 +28,10 @@ docker_build_with_restart(
     ]
 )
 
-# Carrega o manifesto Kubernetes da API
-k8s_yaml('k8s/api.yaml')
-# Configura o redirecionamento de porta 8080 para a API
-k8s_resource('api-server', port_forwards=8080)
+# Carrega os manifests Kubernetes da API
+k8s_yaml('k8s/api-config.yaml')     # Carrega o ConfigMap primeiro
+k8s_yaml('k8s/api.yaml')            # Depois carrega o deployment
+k8s_resource('api-server', port_forwards=8080, labels=['api'])
 
 # Configuração do Worker
 docker_build_with_restart(
@@ -51,11 +51,20 @@ docker_build_with_restart(
     ]
 )
 
-# Carrega o manifesto Kubernetes do Worker
-k8s_yaml('k8s/worker.yaml')
-k8s_resource('worker-server')
+# Carrega os manifests Kubernetes do Worker
+k8s_yaml('k8s/worker-config.yaml')  # Carrega o ConfigMap primeiro
+k8s_yaml('k8s/worker.yaml')         # Depois carrega o deployment
+k8s_resource('worker-server', port_forwards=8081, labels=['worker'])
 
-# Habilita atualizações em tempo real para ambos os serviços
-# As labels são usadas para agrupar os recursos no UI do Tilt
-k8s_resource('api-server', labels=['api'])
-k8s_resource('worker-server', labels=['worker']) 
+# Cria recursos Tilt para os ConfigMaps e aplica labels
+k8s_resource(
+    objects=['api-config:configmap'],
+    new_name='api-config',
+    labels=['api']
+)
+
+k8s_resource(
+    objects=['worker-config:configmap'],
+    new_name='worker-config',
+    labels=['worker']
+) 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -16,6 +17,13 @@ import (
 var (
 	logger *zap.Logger
 )
+
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
+}
 
 func initLogger() error {
 	config := zap.NewProductionConfig()
@@ -57,10 +65,18 @@ func main() {
 	}
 	defer logger.Sync()
 
+	// Get configuration from environment variables
+	port := getEnv("PORT", "8081")
+	environment := getEnv("ENVIRONMENT", "development")
+	version := getEnv("VERSION", "1.0.0")
+	schedulerInterval, _ := strconv.Atoi(getEnv("SCHEDULER_INTERVAL", "1"))
+
 	logger.Info("service_started",
 		zap.String("service", "worker"),
-		zap.String("version", "1.0.0"),
-		zap.String("environment", "production"),
+		zap.String("version", version),
+		zap.String("environment", environment),
+		zap.String("port", port),
+		zap.Int("scheduler_interval", schedulerInterval),
 	)
 
 	// Cria o scheduler
@@ -68,7 +84,7 @@ func main() {
 	scheduler := gocron.NewScheduler(loc)
 
 	// Agenda a tarefa de limpeza
-	_, err := scheduler.Every(1).Minutes().Do(func() {
+	_, err := scheduler.Every(schedulerInterval).Minutes().Do(func() {
 		logger.Info("cleanup_job_started",
 			zap.String("service", "worker"),
 			zap.String("job", "cleanup"),
@@ -110,7 +126,7 @@ func main() {
 
 	// Inicie o servidor HTTP para o health check
 	http.HandleFunc("/health", healthCheckHandler)
-	go http.ListenAndServe(":8081", nil) // Inicie o servidor em uma goroutine
+	go http.ListenAndServe(":"+port, nil)
 
 	// Mantém o processo rodando
 	quit := make(chan os.Signal, 1)

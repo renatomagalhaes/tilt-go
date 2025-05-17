@@ -16,4 +16,22 @@ spec:
     spec:
       containers:
       - name: worker-server
-        image: worker-server:latest 
+        image: worker-server:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8081
+        envFrom:
+        - configMapRef:
+            name: worker-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-server
+spec:
+  selector:
+    app: worker-server
+  ports:
+  - port: 8081
+    targetPort: 8081
+  type: ClusterIP 

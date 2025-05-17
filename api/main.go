@@ -16,6 +16,13 @@ var (
 	logger *zap.Logger
 )
 
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
+}
+
 func initLogger() error {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"stdout"}
@@ -57,16 +64,15 @@ func main() {
 	}
 	defer logger.Sync()
 
-	// Get port from environment variable or use default
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// Get configuration from environment variables
+	port := getEnv("PORT", "8080")
+	environment := getEnv("ENVIRONMENT", "development")
+	version := getEnv("VERSION", "1.0.0")
 
 	logger.Info("service_started",
 		zap.String("service", "api"),
-		zap.String("version", "1.0.0"),
-		zap.String("environment", "production"),
+		zap.String("version", version),
+		zap.String("environment", environment),
 		zap.String("port", port),
 	)
 
