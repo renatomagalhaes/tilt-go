@@ -1,0 +1,16 @@
+FROM golang:1.23.0
+
+WORKDIR /app
+
+# Instala dependências do sistema
+RUN apt-get update && apt-get install -y \
+    git \
+    netcat-traditional \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copia apenas os arquivos de dependências
+COPY go.mod go.sum ./
+RUN go mod download
+
+# O código será montado via volume
+CMD ["go", "run", "main.go"] 

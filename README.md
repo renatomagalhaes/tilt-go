@@ -339,6 +339,80 @@ make test-shutdown-api
 # - Conexões sendo fechadas adequadamente
 ```
 
+## Desenvolvimento com Dependências
+
+O projeto usa uma configuração híbrida para desenvolvimento:
+
+1. **Ambiente Go**: Container Docker com Go instalado
+2. **Dependências**: Serviços gerenciados via Docker Compose
+3. **Hot Reload**: Código executado via `go run` dentro do container
+
+### Serviços Disponíveis
+
+- **MySQL**: `localhost:3306`
+  - Usuário: root
+  - Senha: root
+  - Database: app
+
+- **Memcached**: `localhost:11211`
+
+- **RabbitMQ**: `localhost:5672`
+  - Management UI: `localhost:15672`
+  - Usuário: guest
+  - Senha: guest
+
+### Como Usar
+
+1. Inicie o ambiente:
+   ```bash
+   make tilt-up
+   ```
+
+2. Acesse os serviços:
+   - API: http://localhost:8080
+   - Worker: http://localhost:8081
+   - RabbitMQ Management: http://localhost:15672
+
+3. Monitore os logs:
+   - Logs da aplicação: Terminal do Tilt
+   - Logs dos serviços: `docker-compose logs -f [serviço]`
+
+### Estrutura de Desenvolvimento
+
+```
+.
+├── api/
+│   ├── Dockerfile.dev    # Dockerfile para desenvolvimento
+│   └── main.go
+├── worker/
+│   ├── Dockerfile.dev    # Dockerfile para desenvolvimento
+│   └── main.go
+├── docker-compose.dev.yml # Serviços de dependência
+├── k8s/
+│   ├── api-config.yaml   # Configurações da API
+│   └── worker-config.yaml # Configurações do Worker
+└── Tiltfile             # Configuração do Tilt
+```
+
+### Comandos Úteis
+
+```bash
+# Iniciar ambiente
+make tilt-up
+
+# Parar ambiente
+make tilt-down
+
+# Ver logs dos serviços
+make logs-services
+
+# Reiniciar serviços
+make restart-services
+
+# Limpar ambiente
+make clean
+``` 
+
 ## Autor
 
 **Renato Magalhães**
@@ -348,5 +422,3 @@ make test-shutdown-api
 Este projeto está hospedado em: [https://github.com/renatomagalhaes/tilt-go](https://github.com/renatomagalhaes/tilt-go)
 
 ## Licença
-
-Este projeto está licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes. 

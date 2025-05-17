@@ -1,70 +1,49 @@
-# Carrega a extensão restart_process que permite reiniciar o processo dentro do container
-# quando há mudanças no código, sem precisar reconstruir a imagem
-load('ext://restart_process', 'docker_build_with_restart')
+# Extensões do Tilt
+load('ext://docker_compose', 'docker_compose')
 
-# Define quais contextos Kubernetes são permitidos
-# Neste caso, apenas o Docker Desktop está habilitado
-# Exemplos de outros contextos (descomente a linha que deseja usar):
-# allow_k8s_contexts('docker-desktop')  # Para Windows com WSL2 + Docker Desktop
-# allow_k8s_contexts('minikube')       # Para Minikube
-# allow_k8s_contexts('microk8s')       # Para MicroK8s
-allow_k8s_contexts('docker-desktop')
+# Carrega as dependências via docker-compose
+docker_compose('docker-compose.dev.yml')
 
-# Configuração do servidor API
-docker_build_with_restart(
-    'api-server',                    # Nome da imagem Docker
-    './api',                         # Diretório do código fonte
-    dockerfile='api/Dockerfile',     # Caminho do Dockerfile
-    entrypoint=['./api-server'],     # Comando para iniciar a aplicação
-    live_update=[                    # Configuração de atualização em tempo real
-        # Sincroniza os arquivos do diretório ./api para /app no container
-        sync('./api', '/app'),
-        # Inicializa o módulo Go (se não existir)
-        run('cd /app && go mod init github.com/yourusername/tilt-go/api || true'),
-        # Atualiza as dependências
-        run('cd /app && go mod tidy'),
-        # Compila a aplicação
-        run('cd /app && CGO_ENABLED=0 GOOS=linux go build -o api-server'),
+# Configuração do Go para desenvolvimento
+docker_build(
+    'api-dev',
+    'api',
+    dockerfile='api/Dockerfile.dev',
+    live_update=[
+        # Monta o código fonte
+        sync('api', '/app'),
+        # Executa go run
+        run('cd /app && go run main.go'),
     ]
 )
 
-# Carrega os manifests Kubernetes da API
-k8s_yaml('k8s/api-config.yaml')     # Carrega o ConfigMap primeiro
-k8s_yaml('k8s/api.yaml')            # Depois carrega o deployment
-k8s_resource('api-server', port_forwards=8080, labels=['api'])
-
-# Configuração do Worker
-docker_build_with_restart(
-    'worker-server',                 # Nome da imagem Docker
-    './worker',                      # Diretório do código fonte
-    dockerfile='worker/Dockerfile',  # Caminho do Dockerfile
-    entrypoint=['./worker-server'],  # Comando para iniciar a aplicação
-    live_update=[                    # Configuração de atualização em tempo real
-        # Sincroniza os arquivos do diretório ./worker para /app no container
-        sync('./worker', '/app'),
-        # Inicializa o módulo Go (se não existir)
-        run('cd /app && go mod init github.com/yourusername/tilt-go/worker || true'),
-        # Atualiza as dependências
-        run('cd /app && go mod tidy'),
-        # Compila a aplicação
-        run('cd /app && CGO_ENABLED=0 GOOS=linux go build -o worker-server'),
+docker_build(
+    'worker-dev',
+    'worker',
+    dockerfile='worker/Dockerfile.dev',
+    live_update=[
+        sync('worker', '/app'),
+        run('cd /app && go run main.go'),
     ]
 )
 
-# Carrega os manifests Kubernetes do Worker
-k8s_yaml('k8s/worker-config.yaml')  # Carrega o ConfigMap primeiro
-k8s_yaml('k8s/worker.yaml')         # Depois carrega o deployment
-k8s_resource('worker-server', port_forwards=8081, labels=['worker'])
+# Configuração do Kubernetes
+k8s_yaml('k8s/api.yaml')
+k8s_yaml('k8s/worker.yaml')
 
-# Cria recursos Tilt para os ConfigMaps e aplica labels
+# Configuração dos ConfigMaps
 k8s_resource(
-    objects=['api-config:configmap'],
-    new_name='api-config',
-    labels=['api']
+    'api-config',
+    labels=['api', 'config'],
+    objects=['api-config']
 )
 
 k8s_resource(
-    objects=['worker-config:configmap'],
-    new_name='worker-config',
-    labels=['worker']
-) 
+    'worker-config',
+    labels=['worker', 'config'],
+    objects=['worker-config']
+)
+
+# Labels para organização no Tilt
+k8s_resource('api-server', labels=['api'])
+k8s_resource('worker-server', labels=['worker']) 
