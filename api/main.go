@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -23,32 +23,22 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-func initLogger() error {
-	config := zap.NewProductionConfig()
-	config.OutputPaths = []string{"stdout"}
-	config.ErrorOutputPaths = []string{"stderr"}
+func initLogger(serviceName, version, environment string) {
+	config := zap.NewProductionEncoderConfig()
+	config.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05-03:00") // RFC3339 with UTC-3 offset
+	config.EncodeLevel = zapcore.CapitalLevelEncoder                             // Remove color encoding from level
 
-	// Configure timezone for timestamps
-	loc := time.FixedZone("UTC-3", -3*60*60)
-	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.In(loc).Format(time.RFC3339))
-	}
+	encoder := zapcore.NewJSONEncoder(config)
+	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), zapcore.InfoLevel)
 
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	config.EncoderConfig.MessageKey = "message"
-	config.EncoderConfig.LevelKey = "level"
-	config.EncoderConfig.TimeKey = "timestamp"
-	config.EncoderConfig.NameKey = "logger"
-	config.EncoderConfig.CallerKey = "caller"
-	config.EncoderConfig.FunctionKey = "function"
-	config.EncoderConfig.StacktraceKey = "stacktrace"
+	logger = zap.New(core, zap.AddCaller()).With(
+		zap.String("service", serviceName),
+		zap.String("version", version),
+		zap.String("environment", environment),
+	)
 
-	var err error
-	logger, err = config.Build(zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
-	if err != nil {
-		return fmt.Errorf("failed to create logger: %w", err)
-	}
-	return nil
+	// Replace the global logger for standard library compatibility
+	zap.ReplaceGlobals(logger)
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
@@ -58,26 +48,33 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 // Simple HTTP server that responds with "Hello, World!"
 func main() {
-	if err := initLogger(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
-		os.Exit(1)
-	}
-	defer logger.Sync()
-
-	// Get configuration from environment variables
 	port := getEnv("PORT", "8080")
 	environment := getEnv("ENVIRONMENT", "development")
-	version := getEnv("VERSION", "1.0.0")
+	version := getEnv("VERSION", "unknown")
+
+	// Initialize the logger with service context
+	initLogger("api", version, environment)
 
 	logger.Info("service_started",
-		zap.String("service", "api"),
-		zap.String("version", version),
-		zap.String("environment", environment),
 		zap.String("port", port),
 	)
 
+	router := chi.NewRouter()
+
+	// Health check endpoint
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("API is healthy"))
+	})
+
+	// Healthz endpoint for Kubernetes probes
+	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
 	// Define handler for root endpoint
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("request_received",
 			zap.String("service", "api"),
 			zap.String("path", r.URL.Path),
@@ -88,7 +85,7 @@ func main() {
 	})
 
 	// Add health check endpoint
-	http.HandleFunc("/health", healthCheckHandler)
+	router.HandleFunc("/health", healthCheckHandler)
 
 	// Start server in a goroutine
 	go func() {
@@ -96,7 +93,8 @@ func main() {
 			zap.String("service", "api"),
 			zap.String("port", port),
 		)
-		if err := http.ListenAndServe(":"+port, nil); err != nil {
+		serverAddr := fmt.Sprintf(":%s", port)
+		if err := http.ListenAndServe(serverAddr, router); err != nil {
 			logger.Fatal("server_failed",
 				zap.String("service", "api"),
 				zap.Error(err),
