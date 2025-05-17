@@ -40,7 +40,7 @@ tilt-down: check-tilt
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -f api/api-server
-	rm -f worker/worker
+	rm -f worker/worker-server
 	rm -rf api/vendor
 	rm -rf worker/vendor
 	@echo "Clean completed!"
@@ -49,7 +49,7 @@ clean:
 build:
 	@echo "Building services..."
 	cd api && go mod tidy && go build -o api-server
-	cd worker && go mod tidy && go build -o worker
+	cd worker && go mod tidy && go build -o worker-server
 	@echo "Build completed!"
 
 # Run tests
