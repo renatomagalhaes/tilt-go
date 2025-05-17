@@ -46,6 +46,31 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+// livezHandler handles liveness probe
+func livezHandler(w http.ResponseWriter, r *http.Request) {
+	// Liveness check should be fast and not check external dependencies
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+// readyzHandler handles readiness probe
+func readyzHandler(w http.ResponseWriter, r *http.Request) {
+	// Readiness check can verify external dependencies
+	// For now, we'll just return OK, but you could add checks for:
+	// - Database connection
+	// - Cache connection
+	// - External service dependencies
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+// healthzHandler handles startup probe
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	// Startup check is similar to liveness but with higher threshold
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
 // Simple HTTP server that responds with "Hello, World!"
 func main() {
 	port := getEnv("PORT", "8080")
@@ -61,17 +86,13 @@ func main() {
 
 	router := chi.NewRouter()
 
-	// Health check endpoint
-	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("API is healthy"))
-	})
+	// Health check endpoints following Kubernetes best practices
+	router.Get("/livez", livezHandler)     // Liveness probe
+	router.Get("/readyz", readyzHandler)   // Readiness probe
+	router.Get("/healthz", healthzHandler) // Startup probe
 
-	// Healthz endpoint for Kubernetes probes
-	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	// Legacy health check endpoint (can be removed if not needed)
+	router.Get("/health", healthCheckHandler)
 
 	// Define handler for root endpoint
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -83,9 +104,6 @@ func main() {
 		)
 		fmt.Fprintf(w, "Hello, World Tilt!")
 	})
-
-	// Add health check endpoint
-	router.HandleFunc("/health", healthCheckHandler)
 
 	// Start server in a goroutine
 	go func() {

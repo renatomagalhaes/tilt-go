@@ -93,18 +93,34 @@ func main() {
 	// Create a new HTTP server for health checks
 	healthRouter := http.NewServeMux()
 
-	// Healthz endpoint for Kubernetes probes
-	healthRouter.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	// Health check endpoints following Kubernetes best practices
+	healthRouter.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		// Liveness check should be fast and not check external dependencies
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	// Optional: Add a more detailed health check endpoint if needed
-	// healthRouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-	//  // Check scheduler status or other components
-	//  w.WriteHeader(http.StatusOK)
-	//  w.Write([]byte("Worker is healthy"))
-	// })
+	healthRouter.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		// Readiness check can verify external dependencies
+		// For now, we'll just return OK, but you could add checks for:
+		// - Database connection
+		// - Cache connection
+		// - External service dependencies
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	healthRouter.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		// Startup check is similar to liveness but with higher threshold
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	// Legacy health check endpoint (can be removed if not needed)
+	healthRouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Worker is healthy"))
+	})
 
 	healthServerAddr := fmt.Sprintf(":%s", port)
 	logger.Info("starting_health_server", zap.String("addr", healthServerAddr))
