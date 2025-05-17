@@ -1,20 +1,20 @@
 # Build stage
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
 # Copy go mod file
-COPY go.mod ./
-COPY go.sum ./
-
-# Download dependencies and generate go.sum
-RUN go mod download && go mod tidy
+COPY go.mod go.sum ./ 
 
 # Copy source code
-COPY . .
+COPY . . 
 
-# Build the application
-RUN go build -o worker-server .
+# Download dependencies and generate vendor directory
+RUN go mod tidy
+RUN go mod vendor
+
+# Build the application using the vendor directory
+RUN go build -mod=vendor -o worker-server
 
 # Final stage
 FROM alpine:latest
@@ -25,10 +25,10 @@ WORKDIR /app
 RUN apk add --no-cache tzdata
 
 # Copy the binary from builder
-COPY --from=0 /app/worker-server .
+COPY --from=builder /app/worker-server .
 
 # Expose port
 EXPOSE 8081
 
 # Run the application
-CMD ["./worker-server"] 
+ENTRYPOINT ["/app/worker-server"] 

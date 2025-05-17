@@ -9,15 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-co-op/gocron"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	logger *zap.Logger
-)
+var logger *zap.Logger
 
+// getEnv retrieves an environment variable or returns a default value.
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
@@ -25,128 +23,129 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-func initLogger() error {
-	config := zap.NewProductionConfig()
-	config.OutputPaths = []string{"stdout"}
-	config.ErrorOutputPaths = []string{"stderr"}
+// initLogger initializes the Zap logger with structured logging and UTC-3 timezone.
+func initLogger(serviceName, version, environment string) {
+	config := zap.NewProductionEncoderConfig()
+	// Configure timestamp format with UTC-3 offset
+	config.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05-03:00") // RFC3339 with UTC-3 offset
+	config.EncodeLevel = zapcore.CapitalLevelEncoder                             // Remove color encoding from level
 
-	// Configure timezone for timestamps
-	loc := time.FixedZone("UTC-3", -3*60*60)
-	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.In(loc).Format(time.RFC3339))
-	}
+	encoder := zapcore.NewJSONEncoder(config)
+	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), zapcore.InfoLevel)
 
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	config.EncoderConfig.MessageKey = "message"
-	config.EncoderConfig.LevelKey = "level"
-	config.EncoderConfig.TimeKey = "timestamp"
-	config.EncoderConfig.NameKey = "logger"
-	config.EncoderConfig.CallerKey = "caller"
-	config.EncoderConfig.FunctionKey = "function"
-	config.EncoderConfig.StacktraceKey = "stacktrace"
+	logger = zap.New(core, zap.AddCaller()).With(
+		zap.String("service", serviceName),
+		zap.String("version", version),
+		zap.String("environment", environment),
+	)
 
-	var err error
-	logger, err = config.Build(zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
-	if err != nil {
-		return fmt.Errorf("failed to create logger: %w", err)
-	}
-	return nil
-}
-
-func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	// Replace the global logger for standard library compatibility
+	zap.ReplaceGlobals(logger)
 }
 
 func main() {
-	if err := initLogger(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
-		os.Exit(1)
-	}
-	defer logger.Sync()
-
 	// Get configuration from environment variables
 	port := getEnv("PORT", "8081")
 	environment := getEnv("ENVIRONMENT", "development")
-	version := getEnv("VERSION", "1.0.0")
-	schedulerInterval, _ := strconv.Atoi(getEnv("SCHEDULER_INTERVAL", "1"))
+	version := getEnv("VERSION", "unknown")
+	schedulerIntervalStr := getEnv("SCHEDULER_INTERVAL", "1")
+
+	// Initialize the logger with service context
+	initLogger("worker", version, environment)
 
 	logger.Info("service_started",
-		zap.String("service", "worker"),
-		zap.String("version", version),
-		zap.String("environment", environment),
 		zap.String("port", port),
-		zap.Int("scheduler_interval", schedulerInterval),
+		zap.String("scheduler_interval", schedulerIntervalStr),
 	)
 
-	// Cria o scheduler
-	loc := time.FixedZone("UTC-3", -3*60*60)
-	scheduler := gocron.NewScheduler(loc)
-
-	// Agenda a tarefa de limpeza
-	_, err := scheduler.Every(schedulerInterval).Minutes().Do(func() {
-		logger.Info("cleanup_job_started",
-			zap.String("service", "worker"),
-			zap.String("job", "cleanup"),
-			zap.String("scheduled_time", time.Now().UTC().Format(time.RFC3339)),
-		)
-
-		start := time.Now()
-		if err := cleanupOldData(); err != nil {
-			logger.Error("cleanup_job_failed",
-				zap.String("service", "worker"),
-				zap.String("job", "cleanup"),
-				zap.Error(err),
-				zap.Duration("duration", time.Since(start)),
-			)
-			return
-		}
-
-		logger.Info("cleanup_job_completed",
-			zap.String("service", "worker"),
-			zap.String("job", "cleanup"),
-			zap.Duration("duration", time.Since(start)),
-		)
-	})
-
-	if err != nil {
-		logger.Fatal("scheduler_initialization_failed",
-			zap.String("service", "worker"),
+	// Parse scheduler interval
+	schedulerInterval, err := strconv.Atoi(schedulerIntervalStr)
+	if err != nil || schedulerInterval <= 0 {
+		logger.Error("invalid_scheduler_interval",
 			zap.Error(err),
+			zap.String("interval_string", schedulerIntervalStr),
+			zap.String("message", "using default interval of 1 minute"),
 		)
+		schedulerInterval = 1 // Default to 1 minute if invalid
 	}
 
-	// Inicia o scheduler
-	scheduler.StartAsync()
+	// --- Simple Scheduler using Ticker ---
+	ticker := time.NewTicker(time.Duration(schedulerInterval) * time.Minute)
+	done := make(chan bool)
 
-	logger.Info("scheduler_started",
-		zap.String("service", "worker"),
-		zap.Int("jobs_count", len(scheduler.Jobs())),
-	)
+	go func() {
+		logger.Info("scheduler_started", zap.Int("interval_minutes", schedulerInterval))
+		// Execute the task immediately on startup
+		executeCleanupJob()
+		for {
+			select {
+			case <-ticker.C:
+				executeCleanupJob()
+			case <-done:
+				logger.Info("scheduler_stopped")
+				return
+			}
+		}
+	}()
+	// --- End Simple Scheduler ---
 
-	// Inicie o servidor HTTP para o health check
-	http.HandleFunc("/health", healthCheckHandler)
-	go http.ListenAndServe(":"+port, nil)
+	// --- Health Check Server for Probes ---
+	// Create a new HTTP server for health checks
+	healthRouter := http.NewServeMux()
 
-	// Mantém o processo rodando
+	// Healthz endpoint for Kubernetes probes
+	healthRouter.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	// Optional: Add a more detailed health check endpoint if needed
+	// healthRouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	//  // Check scheduler status or other components
+	//  w.WriteHeader(http.StatusOK)
+	//  w.Write([]byte("Worker is healthy"))
+	// })
+
+	healthServerAddr := fmt.Sprintf(":%s", port)
+	logger.Info("starting_health_server", zap.String("addr", healthServerAddr))
+
+	// Start the health server in a goroutine
+	go func() {
+		if err := http.ListenAndServe(healthServerAddr, healthRouter); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("health_server_failed", zap.Error(err))
+		}
+	}()
+	// --- End Health Check Server ---
+
+	// Wait for interrupt signal to gracefully shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+
+	// Stop the ticker and signal done to the scheduler goroutine
+	ticker.Stop()
+	done <- true
 
 	logger.Info("service_shutting_down",
 		zap.String("service", "worker"),
 	)
 
-	// Para o scheduler
-	scheduler.Stop()
+	// TODO: Add logic here to gracefully stop any long-running worker tasks if necessary
 
 	logger.Info("service_stopped",
 		zap.String("service", "worker"),
 	)
 }
 
-func cleanupOldData() error {
-	// Simula uma tarefa de limpeza
+// executeCleanupJob simulates the cron task.
+func executeCleanupJob() {
+	logger.Info("cleanup_job_started", zap.String("job", "cleanup"))
+	start := time.Now()
+	// Simulate a cleanup task
 	time.Sleep(5 * time.Second)
-	return nil
+	duration := time.Since(start).Seconds()
+	logger.Info("cleanup_job_completed",
+		zap.String("job", "cleanup"),
+		zap.Float64("duration", duration),
+	)
 }
