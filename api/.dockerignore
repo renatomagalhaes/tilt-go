@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+*.test
+*.out
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Tilt
+Tiltfile 

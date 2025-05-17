@@ -1,16 +1,22 @@
-FROM golang:1.23.0
+# Development stage
+FROM golang:1.23
 
 WORKDIR /app
 
-# Instala dependências do sistema
+# Install necessary build tools
 RUN apt-get update && apt-get install -y \
     git \
-    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia apenas os arquivos de dependências
+# Copy go mod files and source code
 COPY go.mod go.sum ./
-RUN go mod download
+COPY . .
 
-# O código será montado via volume
-CMD ["go", "run", "main.go"] 
+# Download dependencies and build the application
+RUN go mod download && go mod tidy && go build -o /app/worker-server .
+
+# Expose port
+EXPOSE 8081
+
+# The entrypoint will be set by Tilt
+# CMD ["go", "run", "main.go"] 

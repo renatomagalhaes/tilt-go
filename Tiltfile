@@ -1,49 +1,53 @@
-# Extensões do Tilt
-load('ext://docker_compose', 'docker_compose')
+# Carrega a extensão restart_process que permite reiniciar o processo dentro do container
+load('ext://restart_process', 'docker_build_with_restart')
 
-# Carrega as dependências via docker-compose
-docker_compose('docker-compose.dev.yml')
+# Define quais contextos Kubernetes são permitidos
+# Neste caso, apenas o Docker Desktop está habilitado
+allow_k8s_contexts('docker-desktop')
 
-# Configuração do Go para desenvolvimento
-docker_build(
-    'api-dev',
-    'api',
-    dockerfile='api/Dockerfile.dev',
+# Configuração do servidor API
+docker_build_with_restart(
+    'api-server',                    # Nome da imagem Docker
+    './api',                         # Diretório do código fonte
+    dockerfile='api/Dockerfile.dev', # Caminho do Dockerfile
+    entrypoint=["/app/api-server"],
     live_update=[
-        # Monta o código fonte
-        sync('api', '/app'),
-        # Executa go run
-        run('cd /app && go run main.go'),
+        sync('./api', '/app'),
+        run('cd /app && go mod tidy && go build -o /app/api-server .'),
     ]
 )
 
-docker_build(
-    'worker-dev',
-    'worker',
-    dockerfile='worker/Dockerfile.dev',
+# Carrega os manifests Kubernetes da API
+k8s_yaml('k8s/api-config.yaml')     # Carrega o ConfigMap primeiro
+k8s_yaml('k8s/api.yaml')            # Depois carrega o deployment
+k8s_resource('api-server', port_forwards=8080, labels=['api'])
+
+# Configuração do Worker
+docker_build_with_restart(
+    'worker-server',                 # Nome da imagem Docker
+    './worker',                      # Diretório do código fonte
+    dockerfile='worker/Dockerfile.dev',  # Caminho do Dockerfile
+    entrypoint=["/app/worker-server"],
     live_update=[
-        sync('worker', '/app'),
-        run('cd /app && go run main.go'),
+        sync('./worker', '/app'),
+        run('cd /app && go mod tidy && go build -o /app/worker-server .'),
     ]
 )
 
-# Configuração do Kubernetes
-k8s_yaml('k8s/api.yaml')
-k8s_yaml('k8s/worker.yaml')
+# Carrega os manifests Kubernetes do Worker
+k8s_yaml('k8s/worker-config.yaml')  # Carrega o ConfigMap primeiro
+k8s_yaml('k8s/worker.yaml')         # Depois carrega o deployment
+k8s_resource('worker-server', port_forwards=8081, labels=['worker'])
 
-# Configuração dos ConfigMaps
+# Cria recursos Tilt para os ConfigMaps e aplica labels
 k8s_resource(
-    'api-config',
-    labels=['api', 'config'],
-    objects=['api-config']
+    objects=['api-config:configmap'],
+    new_name='api-config',
+    labels=['api']
 )
 
 k8s_resource(
-    'worker-config',
-    labels=['worker', 'config'],
-    objects=['worker-config']
-)
-
-# Labels para organização no Tilt
-k8s_resource('api-server', labels=['api'])
-k8s_resource('worker-server', labels=['worker']) 
+    objects=['worker-config:configmap'],
+    new_name='worker-config',
+    labels=['worker']
+) 
