@@ -48,6 +48,12 @@ Este processo foca em atualizações incrementais no contêiner sem builds de im
 
 As dependências essenciais para o desenvolvimento local (MySQL, Memcached, RabbitMQ) são definidas no `docker-compose.dev.yml`. O `Tiltfile` integra esse arquivo (`docker_compose('./docker-compose.dev.yml')`), permitindo que o Tilt gerencie o startup e shutdown desses serviços juntamente com os serviços da aplicação. Labels são aplicadas via `dc_resource` para organização na UI do Tilt.
 
+## Database Migrations
+
+O MySQL é inicializado usando scripts SQL localizados no diretório `migrations/`. O `docker-compose.dev.yml` monta este diretório no contêiner MySQL, e o `docker-entrypoint-initdb.d` do MySQL executa automaticamente os arquivos `.sql` encontrados em ordem alfabética.
+
+Recomenda-se um padrão de nomeação sequencial (ex: `001_create_table_x.sql`, `002_insert_initial_data_y.sql`) para garantir a ordem correta de execução das migrations.
+
 ## Iniciando o Ambiente
 
 1.  Confirme que seu ambiente Kubernetes local está rodando.
@@ -56,7 +62,7 @@ As dependências essenciais para o desenvolvimento local (MySQL, Memcached, Rabb
     make tilt-up
     ```
 
-O Tilt iniciará os serviços Docker Compose, construirá e implantará os serviços Go no Kubernetes e abrirá a UI do Tilt (`http://localhost:10350/`).
+O Tilt iniciará os serviços Docker Compose (executando as migrations do MySQL), construirá e implantará os serviços Go no Kubernetes e abrirá a UI do Tilt (`http://localhost:10351/`).
 
 ## Acesso e Monitoramento
 
@@ -72,10 +78,28 @@ Com o ambiente ativo via Tilt:
 Os serviços API e Worker expõem endpoints específicos para probes de saúde do Kubernetes:
 
 *   `/livez`: Liveness Probe (verifica processo ativo).
-*   `/readyz`: Readiness Probe (verifica prontidão para tráfego).
+*   `/readyz`: Readiness Probe (verifica prontidão para tráfego e **conexão com o banco de dados**).
 *   `/healthz`: Startup Probe (verifica inicialização completa).
 
-Estes endpoints são projetados para serem leves e rápidos, seguindo as práticas do Kubernetes.
+Os endpoints `/readyz` e `/healthz` agora incluem uma verificação da conexão com o banco de dados MySQL, garantindo que o serviço só reporte prontidão ou startup completo se a comunicação com o DB estiver funcional. Estes endpoints são projetados para serem leves e rápidos, seguindo as práticas do Kubernetes.
+
+### Rota de Frases Aleatórias
+
+A API agora possui uma nova rota:
+
+*   `GET /quotes/random`: Retorna uma frase aleatória do banco de dados.
+
+### Logging Padronizado (API - /quotes/random)
+
+A rota `/quotes/random` na API utiliza logging estruturado (JSON) via `go.uber.org/zap` para observabilidade aprimorada. As logs incluem:
+
+*   Timestamp, nível, serviço, endpoint e método.
+*   Endereço remoto da requisição.
+*   Duração da chamada ao banco de dados.
+*   Em caso de sucesso, o ID da frase (`quote_id`) e o status code (200).
+*   Em caso de erro, detalhes do erro e status code (500).
+
+Este padrão de logging facilita a análise e monitoramento do comportamento da API.
 
 ### Acesso Direto às Dependências (Host)
 
@@ -90,6 +114,10 @@ Os serviços Docker Compose são mapeados para `localhost`:
 *   Logs estruturados em JSON.
 *   Graceful Shutdown para API e Worker.
 *   Scheduler de exemplo no Worker.
+*   Database Migrations via scripts SQL.
+*   Rota de frases aleatórias (`/quotes/random`).
+*   Health checks com verificação de conexão ao DB.
+*   Logging padronizado para rota `/quotes/random`.
 
 ## Detalhes Técnicos Adicionais
 
