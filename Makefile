@@ -1,4 +1,4 @@
-.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt
+.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt test-shutdown-api test-shutdown-worker
 
 # Check if Tilt is installed
 check-tilt:
@@ -48,6 +48,15 @@ test:
 	cd api && go test -v ./...
 	cd worker && go test -v ./...
 	@echo "Tests completed!"
+
+# Test graceful shutdown
+test-shutdown-api:
+	@echo "Testing API graceful shutdown..."
+	@kubectl get pod -l app=api-server -o name | xargs -I {} kubectl delete {} --grace-period=30
+
+test-shutdown-worker:
+	@echo "Testing Worker graceful shutdown..."
+	@kubectl get pod -l app=worker-server -o name | xargs -I {} kubectl delete {} --grace-period=30
 
 # Help command
 help:
