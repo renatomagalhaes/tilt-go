@@ -91,9 +91,6 @@ func main() {
 	router.Get("/readyz", readyzHandler)   // Readiness probe
 	router.Get("/healthz", healthzHandler) // Startup probe
 
-	// Legacy health check endpoint (can be removed if not needed)
-	router.Get("/health", healthCheckHandler)
-
 	// Define handler for root endpoint
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("request_received",
