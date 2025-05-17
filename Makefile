@@ -14,8 +14,8 @@ install-tilt: check-tilt
 
 # Start development environment
 tilt-up: install-tilt
-	@echo "Iniciando ambiente de desenvolvimento..."
-	@tilt up
+	@echo "Iniciando ambiente de desenvolvimento na porta 10351..."
+	@tilt up --debug --port 10351
 
 # Stop development environment
 tilt-down:
