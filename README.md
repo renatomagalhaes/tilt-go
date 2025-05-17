@@ -2,8 +2,8 @@
 
 Este projeto demonstra como usar Tilt.dev para desenvolvimento local com Kubernetes usando Go. A aplicação consiste em dois componentes:
 
-1. **API Server**: Servidor HTTP com logs estruturados usando Zap
-2. **Worker**: Processo em background que executa uma tarefa agendada com logs estruturados
+1. **API Server**: Servidor HTTP com logs estruturados usando Zap e endpoints de saúde.
+2. **Worker**: Processo em background que executa uma tarefa agendada com logs estruturados e endpoint de saúde.
 
 ## Estrutura do Projeto
 
@@ -105,6 +105,86 @@ minikube start
 minikube status
 ```
 
+## Probes do Kubernetes
+
+Os probes são verificações de saúde que o Kubernetes usa para monitorar a aplicação. Existem três tipos:
+
+- **Liveness Probe**: Verifica se a aplicação está viva. Se falhar, o Kubernetes reinicia o pod.
+- **Readiness Probe**: Verifica se a aplicação está pronta para receber tráfego. Se falhar, o pod é removido do balanceamento de carga.
+- **Startup Probe**: Verifica se a aplicação iniciou corretamente. Se falhar, o pod é reiniciado.
+
+### Exemplo de Configuração
+
+```yaml
+# Exemplo para a API (k8s/api.yaml)
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 5    # Tempo de espera antes da primeira verificação
+  periodSeconds: 10         # Intervalo entre verificações
+  timeoutSeconds: 2         # Tempo máximo para a resposta
+  failureThreshold: 3       # Número de falhas antes de reiniciar
+  successThreshold: 1       # Número de sucessos para considerar saudável
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 3    # Menor que liveness para começar a receber tráfego mais rápido
+  periodSeconds: 5          # Verificações mais frequentes que liveness
+  timeoutSeconds: 1         # Timeout menor que liveness
+  failureThreshold: 2       # Menos tentativas que liveness
+  successThreshold: 1       # Um sucesso é suficiente
+
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 0    # Começa imediatamente
+  periodSeconds: 5          # Verifica a cada 5 segundos
+  timeoutSeconds: 1         # Timeout de 1 segundo
+  failureThreshold: 30      # Permite até 30 falhas (2.5 minutos) para iniciar
+  successThreshold: 1       # Um sucesso é suficiente
+```
+
+### Explicação dos Parâmetros
+
+- **initialDelaySeconds**: Tempo de espera antes da primeira verificação
+  - Liveness: 5s - Dá tempo para a aplicação inicializar
+  - Readiness: 3s - Começa a verificar mais cedo
+  - Startup: 0s - Começa imediatamente
+
+- **periodSeconds**: Intervalo entre verificações
+  - Liveness: 10s - Verificações menos frequentes
+  - Readiness: 5s - Verificações mais frequentes
+  - Startup: 5s - Verificações moderadas
+
+- **timeoutSeconds**: Tempo máximo para a resposta
+  - Liveness: 2s - Mais tolerante
+  - Readiness: 1s - Mais rigoroso
+  - Startup: 1s - Mais rigoroso
+
+- **failureThreshold**: Número de falhas antes de tomar ação
+  - Liveness: 3 - Mais tolerante a falhas
+  - Readiness: 2 - Menos tolerante
+  - Startup: 30 - Muito tolerante para dar tempo de iniciar
+
+- **successThreshold**: Número de sucessos para considerar saudável
+  - Todos: 1 - Um sucesso é suficiente
+
+### Endpoints de Saúde
+
+A aplicação expõe dois endpoints de saúde:
+
+- `/healthz`: Endpoint simples para probes do Kubernetes
+  - Retorna 200 OK se a aplicação está saudável
+  - Usado pelos probes do Kubernetes
+
+- `/health`: Endpoint mais detalhado para monitoramento
+  - Retorna informações adicionais sobre a saúde da aplicação
+  - Pode ser usado para monitoramento externo
+
 ## Tilt.dev com Golang
 
 O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em Kubernetes. Com Golang, ele oferece:
@@ -145,13 +225,16 @@ O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em
 - API Server: http://localhost:8080
 - Health Check API: http://localhost:8080/health
 - Health Check Worker: http://localhost:8081/health
+- Healthz Endpoints (usados pelos probes):
+  - API: http://localhost:8080/healthz
+  - Worker: http://localhost:8081/healthz
 - Logs: Disponíveis no terminal do Tilt
 
 ## Características da Aplicação
 
 ### API Server
 - Servidor HTTP com logs estruturados usando Zap
-- Endpoint de health check
+- Endpoint de health check (`/health`) e probe (`/healthz`)
 - Logs em formato JSON com timestamp em UTC-3
 
 ### Worker
@@ -159,6 +242,7 @@ O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em
 - Executa tarefa a cada minuto (configurável)
 - Logs estruturados com Zap
 - Timestamp em UTC-3 (horário de Brasília)
+- Endpoint de health check (`/health`) e probe (`/healthz`) em um pequeno servidor HTTP dedicado
 
 ## Autor
 
