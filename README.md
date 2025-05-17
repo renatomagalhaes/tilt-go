@@ -119,7 +119,7 @@ Os probes são verificações de saúde que o Kubernetes usa para monitorar a ap
 # Exemplo para a API (k8s/api.yaml)
 livenessProbe:
   httpGet:
-    path: /healthz
+    path: /livez    # Endpoint específico para liveness
     port: 8080
   initialDelaySeconds: 5    # Tempo de espera antes da primeira verificação
   periodSeconds: 10         # Intervalo entre verificações
@@ -129,7 +129,7 @@ livenessProbe:
 
 readinessProbe:
   httpGet:
-    path: /healthz
+    path: /readyz   # Endpoint específico para readiness
     port: 8080
   initialDelaySeconds: 3    # Menor que liveness para começar a receber tráfego mais rápido
   periodSeconds: 5          # Verificações mais frequentes que liveness
@@ -139,7 +139,7 @@ readinessProbe:
 
 startupProbe:
   httpGet:
-    path: /healthz
+    path: /healthz  # Endpoint específico para startup
     port: 8080
   initialDelaySeconds: 0    # Começa imediatamente
   periodSeconds: 5          # Verifica a cada 5 segundos
