@@ -257,6 +257,88 @@ A aplicação expõe endpoints de saúde seguindo as melhores práticas do Kuber
   - Pode ser usado para monitoramento externo
   - Não é usado pelos probes do Kubernetes
 
+## Graceful Shutdown
+
+O graceful shutdown é uma prática importante que permite que a aplicação encerre suas operações de forma ordenada quando recebe um sinal de término (SIGTERM ou SIGINT). Isso é crucial para:
+
+1. **Integridade dos Dados**: Garantir que operações em andamento sejam concluídas
+2. **Conexões**: Fechar conexões com banco de dados e outros serviços adequadamente
+3. **Logs**: Registrar informações importantes antes do encerramento
+4. **Kubernetes**: Permitir que o Kubernetes gerencie o ciclo de vida dos pods corretamente
+
+### Implementação
+
+Tanto a API quanto o Worker implementam graceful shutdown usando:
+
+```go
+// Criação do canal para sinais
+quit := make(chan os.Signal, 1)
+signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+// Aguarda o sinal
+<-quit
+
+// Executa o shutdown
+logger.Info("service_shutting_down")
+```
+
+### Testando o Graceful Shutdown
+
+Você pode testar o graceful shutdown de várias formas:
+
+1. **Usando o Makefile**:
+   ```bash
+   # Testa o graceful shutdown da API
+   make test-shutdown-api
+
+   # Testa o graceful shutdown do Worker
+   make test-shutdown-worker
+   ```
+
+2. **Manual**:
+   ```bash
+   # Encontra o PID do processo
+   ps aux | grep api-server
+   # ou
+   ps aux | grep worker-server
+
+   # Envia o sinal SIGTERM
+   kill -TERM <PID>
+   ```
+
+3. **Via Kubernetes**:
+   ```bash
+   # Escala o deployment para 0
+   kubectl scale deployment api-server --replicas=0
+   # ou
+   kubectl scale deployment worker-server --replicas=0
+   ```
+
+### O que Observar
+
+Ao testar o graceful shutdown, observe:
+
+1. **Logs**: Deve aparecer a mensagem "service_shutting_down"
+2. **Tempo**: O processo deve encerrar em até 30 segundos (default do Kubernetes)
+3. **Conexões**: Conexões ativas devem ser fechadas adequadamente
+4. **Estado**: O estado da aplicação deve estar consistente
+
+### Exemplo de Teste
+
+```bash
+# 1. Inicie a aplicação
+make tilt-up
+
+# 2. Em outro terminal, teste o graceful shutdown
+make test-shutdown-api
+
+# 3. Observe os logs no terminal do Tilt
+# Você deve ver:
+# - "service_shutting_down"
+# - "service_stopped"
+# - Conexões sendo fechadas adequadamente
+```
+
 ## Autor
 
 **Renato Magalhães**
