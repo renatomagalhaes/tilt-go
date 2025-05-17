@@ -1,6 +1,9 @@
 # Carrega a extensão restart_process que permite reiniciar o processo dentro do container
 load('ext://restart_process', 'docker_build_with_restart')
 
+# Carrega os serviços definidos no Docker Compose para dependências
+docker_compose('./docker-compose.dev.yml')
+
 # Define quais contextos Kubernetes são permitidos
 # Neste caso, apenas o Docker Desktop está habilitado
 allow_k8s_contexts('docker-desktop')
