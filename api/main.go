@@ -1,19 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/renatomagalhaes/tilt-go/api/internal/database"
 )
 
 var (
 	logger *zap.Logger
+	db     *database.DB
 )
 
 func getEnv(key, defaultValue string) string {
@@ -48,27 +53,78 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 // livezHandler handles liveness probe
 func livezHandler(w http.ResponseWriter, r *http.Request) {
-	// Liveness check should be fast and not check external dependencies
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
 
 // readyzHandler handles readiness probe
 func readyzHandler(w http.ResponseWriter, r *http.Request) {
-	// Readiness check can verify external dependencies
-	// For now, we'll just return OK, but you could add checks for:
-	// - Database connection
-	// - Cache connection
-	// - External service dependencies
+	// Check database connection
+	if err := db.CheckConnection(); err != nil {
+		logger.Error("database_connection_failed",
+			zap.Error(err),
+		)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Database connection failed"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
 
 // healthzHandler handles startup probe
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
-	// Startup check is similar to liveness but with higher threshold
+	// Check database connection
+	if err := db.CheckConnection(); err != nil {
+		logger.Error("database_connection_failed",
+			zap.Error(err),
+		)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Database connection failed"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+// quoteHandler handles the random quote endpoint
+func quoteHandler(w http.ResponseWriter, r *http.Request) {
+	// Log request received
+	logger.Info("request_received",
+		zap.String("endpoint", "/quotes/random"),
+		zap.String("method", r.Method),
+		zap.String("remote_addr", r.RemoteAddr),
+	)
+
+	// Measure database call duration
+	startDB := time.Now()
+	quote, err := db.GetRandomQuote()
+	dbDuration := time.Since(startDB)
+
+	if err != nil {
+		// Log the error with context
+		logger.Error("failed_to_get_quote",
+			zap.Error(err),
+			zap.String("endpoint", "/quotes/random"),
+			zap.String("method", r.Method),
+			zap.Duration("database_call_duration", dbDuration), // Log DB duration even on error
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to get quote"})
+		return
+	}
+
+	// Log success
+	logger.Info("quote_retrieved_successfully",
+		zap.String("endpoint", "/quotes/random"),
+		zap.String("method", r.Method),
+		zap.Int("quote_id", quote.ID), // Log the ID
+		zap.Duration("database_call_duration", dbDuration),
+		zap.Int("status_code", http.StatusOK), // Log the status code
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(quote)
 }
 
 // Simple HTTP server that responds with "Hello, World!"
@@ -79,6 +135,24 @@ func main() {
 
 	// Initialize the logger with service context
 	initLogger("api", version, environment)
+
+	// Initialize database connection
+	var err error
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "3306")
+	dbUser := getEnv("DB_USER", "root")
+	dbPass := getEnv("DB_PASS", "root")
+	dbName := getEnv("DB_NAME", "app")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		dbUser, dbPass, dbHost, dbPort, dbName)
+	db, err = database.NewDB(dsn)
+	if err != nil {
+		logger.Fatal("failed_to_connect_to_database",
+			zap.Error(err),
+		)
+	}
+	defer db.Close()
 
 	logger.Info("service_started",
 		zap.String("port", port),
@@ -101,6 +175,9 @@ func main() {
 		)
 		fmt.Fprintf(w, "Hello, World Tilt!")
 	})
+
+	// Add quote endpoint
+	router.Get("/quotes/random", quoteHandler)
 
 	// Start server in a goroutine
 	go func() {

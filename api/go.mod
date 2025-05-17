@@ -1,4 +1,4 @@
-module github.com/yourusername/tilt-go/api
+module github.com/renatomagalhaes/tilt-go/api
 
 go 1.23.0
 
@@ -10,6 +10,8 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 )
