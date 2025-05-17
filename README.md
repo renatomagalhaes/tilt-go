@@ -1,9 +1,15 @@
-# Tilt.dev Kubernetes Example com Golang
+# Ambiente de Desenvolvimento Local com Tilt.dev, Golang e Docker Compose
 
-Este projeto demonstra como usar Tilt.dev para desenvolvimento local com Kubernetes usando Go. A aplicação consiste em dois componentes:
+Este projeto demonstra um ambiente de desenvolvimento local eficiente utilizando Tilt.dev para orquestração, Golang para os serviços da aplicação (API e Worker) rodando em Kubernetes, e Docker Compose para gerenciar as dependências.
 
-1. **API Server**: Servidor HTTP com logs estruturados usando Zap e endpoints de saúde.
-2. **Worker**: Processo em background que executa uma tarefa agendada com logs estruturados e endpoint de saúde.
+Nesta branch, o foco é no fluxo de desenvolvimento local.
+
+## Componentes Principais
+
+1. **API Server**: Servidor HTTP em Go, responsável por lidar com as requisições.
+2. **Worker**: Processo em background em Go, que executa tarefas agendadas.
+3. **Dependências**: Serviços como MySQL, Memcached e RabbitMQ gerenciados via Docker Compose.
+4. **Tilt.dev**: Orquestra a construção, implantação e live update dos serviços Go no Kubernetes e gerencia o ciclo de vida das dependências via Docker Compose.
 
 ## Estrutura do Projeto
 
@@ -11,153 +17,115 @@ Este projeto demonstra como usar Tilt.dev para desenvolvimento local com Kuberne
 .
 ├── api/                # Código do servidor API
 │   ├── main.go         # Implementação do servidor API
-│   └── Dockerfile      # Definição do container da API
+│   └── Dockerfile.dev    # Definição do container de desenvolvimento da API
 ├── worker/             # Código do worker
 │   ├── main.go         # Implementação do worker
-│   └── Dockerfile      # Definição do container do worker
-├── k8s/                # Manifests Kubernetes
-│   ├── api.yaml        # Deployment da API
-│   └── worker.yaml     # Deployment do worker
-├── Makefile            # Comandos de build e desenvolvimento
-├── Tiltfile            # Configuração do Tilt.dev
+│   └── Dockerfile.dev    # Definição do container de desenvolvimento do worker
+├── k8s/                # Manifests Kubernetes (Deployments, Services, ConfigMaps)
+│   ├── api-config.yaml   # ConfigMap da API
+│   ├── api.yaml        # Deployment e Service da API
+│   ├── worker-config.yaml # ConfigMap do Worker
+│   └── worker.yaml     # Deployment e Service do Worker
+├── docker-compose.dev.yml # Definição dos serviços de dependência (MySQL, Memcached, RabbitMQ)
+├── Makefile            # Comandos úteis para build e desenvolvimento
+├── Tiltfile            # Configuração do Tilt.dev para orquestração
 └── README.md           # Documentação do projeto
 ```
 
 ## Pré-requisitos
 
-- Go 1.23.0 ou superior (toolchain 1.23.1)
+Para rodar este projeto localmente, você precisa ter instalado:
+
+- Go 1.23.0 ou superior
 - Docker
-- Kubernetes (local ou remoto)
+- Kubernetes (local ou remoto) - **Recomendado Docker Desktop com Kubernetes ativado**
 - Tilt.dev CLI
 
 ## Configuração do Kubernetes Local
 
-Você tem várias opções para rodar Kubernetes localmente:
+A forma mais simples de configurar um cluster Kubernetes local para desenvolvimento é usando **Docker Desktop com Kubernetes ativado**. Siga as instruções oficiais do Docker Desktop para ativar o Kubernetes nas configurações.
 
-### 1. Docker Desktop com Kubernetes (Windows + WSL2)
+Alternativas como MicroK8s ou Minikube também funcionam, mas a configuração pode variar. Este README foca na integração com Docker Desktop + Tilt.
 
-1. Instale o Docker Desktop para Windows
-2. Ative o WSL2 e instale o Ubuntu
-3. No Docker Desktop:
-   - Vá em Settings > Kubernetes
-   - Ative o Kubernetes
-   - Clique em "Apply & Restart"
-4. Aguarde o cluster iniciar
+## Orquestração com Tilt.dev e Docker Compose
 
-### 2. MicroK8s (Ubuntu)
+O Tilt.dev é a ferramenta central deste ambiente de desenvolvimento. Ele é configurado através do arquivo `Tiltfile` na raiz do projeto.
 
-1. Instale o MicroK8s:
-   ```bash
-   # Instalação
-   sudo snap install microk8s --classic
+O `Tiltfile` define:
 
-   # Adicione seu usuário ao grupo microk8s
-   sudo usermod -a -G microk8s $USER
-   sudo chown -f -R $USER ~/.kube
+- Quais serviços contêinerizados compõem a aplicação (serviços Go no Kubernetes e dependências no Docker Compose).
+- Como construir as imagens dos serviços Go para desenvolvimento (`Dockerfile.dev`).
+- Como implantar os serviços Go no Kubernetes (usando os manifests em `k8s/`).
+- Como gerenciar as dependências definidas no `docker-compose.dev.yml`.
+- Como realizar o **Live Update** do código Go.
 
-   # Reinicie sua sessão ou execute:
-   newgrp microk8s
-   ```
+### Como Funciona o Live Update do Código Go
 
-2. Inicie o MicroK8s:
-   ```bash
-   # Iniciar
-   microk8s start
+Para os serviços API e Worker, o Tilt utiliza uma estratégia de Live Update otimizada para Go:
 
-   # Habilitar addons necessários
-   microk8s enable dns storage
+1.  O `Tiltfile` monitora mudanças nos arquivos Go dentro dos diretórios `./api` e `./worker`.
+2.  Quando uma mudança é detectada, o Tilt sincroniza (`sync`) os arquivos alterados para o diretório de trabalho (`/app`) dentro do contêiner em execução.
+3.  Em seguida, um comando (`run`) é executado DENTRO do contêiner para:
+    *   Atualizar as dependências Go (`go mod tidy`).
+    *   **Recompilar o binário Go** (`go build -o /app/[nome_do_servico] .`).
+4.  Finalmente, o `docker_build_with_restart` (configurado no Tiltfile) reinicia o processo principal do contêiner (que executa o binário recém-compilado `/app/[nome_do_servico]`).
 
-   # Verificar status
-   microk8s status
-   ```
+Este fluxo permite atualizações de código muito rápidas sem a necessidade de reconstruir a imagem Docker completa a cada mudança.
 
-3. Configure o kubectl:
-   ```bash
-   # Criar alias para kubectl
-   echo "alias kubectl='microk8s kubectl'" >> ~/.bashrc
-   source ~/.bashrc
-   ```
+### Gerenciamento de Dependências com Docker Compose
 
-### 3. Minikube
+As dependências externas como banco de dados, cache e fila de mensagens são definidas no arquivo `docker-compose.dev.yml`. O Tilt é configurado para ler este arquivo e gerenciar o ciclo de vida desses serviços Docker Compose (`docker_compose('./docker-compose.dev.yml')`).
 
-#### Ubuntu
-```bash
-# Instalar Minikube
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
+Você pode ver os serviços do Docker Compose (mysql, memcached, rabbitmq) no painel do Tilt, gerenciá-los (iniciar/parar) e visualizar seus logs.
 
-# Iniciar Minikube
-minikube start
+## Iniciando o Ambiente de Desenvolvimento
 
-# Verificar status
-minikube status
-```
+1.  Certifique-se de que o Docker Desktop (com Kubernetes ativado) ou seu ambiente Kubernetes local escolhido esteja em execução.
+2.  Abra um terminal na raiz do projeto (`tilt-go`).
+3.  Execute o comando:
+    ```bash
+    make tilt-up
+    ```
 
-#### macOS
-```bash
-# Instalar Minikube via Homebrew
-brew install minikube
+O Tilt irá ler o `Tiltfile`, iniciar os serviços Docker Compose, construir as imagens Go (apenas na primeira vez ou quando o Dockerfile.dev mudar), implantar os serviços Go no Kubernetes e abrir a UI do Tilt no seu navegador (geralmente em `http://localhost:10350/`).
 
-# Iniciar Minikube
-minikube start
+## Acessando a Aplicação e Dependências
 
-# Verificar status
-minikube status
-```
+Com o Tilt rodando:
 
-## Tilt.dev com Golang
+-   **API Server**: Acesível em `http://localhost:8080`.
+-   **Worker**: Não possui interface web principal, mas seus logs são visíveis no Tilt.
+-   **Logs da Aplicação (API e Worker)**: Visíveis diretamente no terminal onde você rodou `make tilt-up` ou na UI do Tilt.
 
-O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em Kubernetes. Com Golang, ele oferece:
+### Endpoints de Saúde (Probes)
 
-1. **Live Reload**: Atualiza automaticamente os containers quando há mudanças no código
-2. **Build Otimizado**: Utiliza cache de camadas do Docker para builds mais rápidos
-3. **Logs em Tempo Real**: Mostra logs dos containers em tempo real
-4. **Deploy Automático**: Faz deploy das alterações no Kubernetes automaticamente
+Os serviços API e Worker expõem endpoints de saúde utilizados pelo Kubernetes:
 
-### Como Funciona
+-   `/livez`: Liveness Probe - Verifica se o processo está rodando.
+-   `/readyz`: Readiness Probe - Verifica se o serviço está pronto para receber tráfego (pode incluir checagens de dependências).
+-   `/healthz`: Startup Probe - Usado durante a inicialização para indicar quando a aplicação está pronta para responder aos outros probes.
 
-1. O Tiltfile configura:
-   - Quais arquivos monitorar para mudanças
-   - Como construir as imagens Docker
-   - Como fazer deploy no Kubernetes
-   - Como expor os serviços
+Você pode testar esses endpoints diretamente (ex: `http://localhost:8080/livez`).
 
-2. Quando você faz uma alteração:
-   - Tilt detecta a mudança
-   - Reconstrói apenas o container afetado
-   - Faz deploy da nova versão
-   - Atualiza os logs em tempo real
+### Acesso às Dependências
 
-## Iniciando o Projeto
+Os serviços definidos no `docker-compose.dev.yml` são acessíveis no seu host local pelas portas mapeadas:
 
-1. Instale o Tilt:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
-   ```
-
-2. Inicie o ambiente:
-   ```bash
-   make tilt-up
-   ```
-
-## Acessando a Aplicação
-
-- API Server: http://localhost:8080
-- Logs: Disponíveis no terminal do Tilt
+-   **MySQL**: `localhost:3306`
+    -   Usuário padrão: `root`
+    -   Senha padrão: `root`
+    -   Database padrão: `app`
+-   **Memcached**: `localhost:11211`
+-   **RabbitMQ**: `localhost:5672`
+    -   Management UI: `http://localhost:15672`
+    -   Usuário padrão: `guest`
+    -   Senha padrão: `guest`
 
 ## Características da Aplicação
 
-### API Server
-- Servidor HTTP com logs estruturados usando Zap
-- Endpoints de probe (`/livez`, `/readyz`, `/healthz`)
-- Logs em formato JSON com timestamp em UTC-3
-
-### Worker
-- Processo em background com agendamento
-- Executa tarefa a cada minuto (configurável)
-- Logs estruturados com Zap
-- Timestamp em UTC-3 (horário de Brasília)
-- Endpoints de probe (`/livez`, `/readyz`, `/healthz`) em um pequeno servidor HTTP dedicado
+-   Logs estruturados em formato JSON com timestamp em UTC-3.
+-   Graceful Shutdown implementado na API e Worker.
+-   Scheduler simples no Worker para executar uma tarefa agendada.
 
 ## Probes do Kubernetes
 
@@ -329,79 +297,13 @@ make test-shutdown-api
 # - Conexões sendo fechadas adequadamente
 ```
 
-## Desenvolvimento com Dependências
+## Comandos Úteis
 
-O projeto usa uma configuração híbrida para desenvolvimento:
-
-1. **Ambiente Go**: Container Docker com Go instalado
-2. **Dependências**: Serviços gerenciados via Docker Compose
-3. **Hot Reload**: Código executado via `go run` dentro do container
-
-### Serviços Disponíveis
-
-- **MySQL**: `localhost:3306`
-  - Usuário: root
-  - Senha: root
-  - Database: app
-
-- **Memcached**: `localhost:11211`
-
-- **RabbitMQ**: `localhost:5672`
-  - Management UI: `localhost:15672`
-  - Usuário: guest
-  - Senha: guest
-
-### Como Usar
-
-1. Inicie o ambiente:
-   ```bash
-   make tilt-up
-   ```
-
-2. Acesse os serviços:
-   - API: http://localhost:8080
-   - Worker: http://localhost:8081
-   - RabbitMQ Management: http://localhost:15672
-
-3. Monitore os logs:
-   - Logs da aplicação: Terminal do Tilt
-   - Logs dos serviços: `docker-compose logs -f [serviço]`
-
-### Estrutura de Desenvolvimento
-
-```
-.
-├── api/
-│   ├── Dockerfile.dev    # Dockerfile para desenvolvimento
-│   └── main.go
-├── worker/
-│   ├── Dockerfile.dev    # Dockerfile para desenvolvimento
-│   └── main.go
-├── docker-compose.dev.yml # Serviços de dependência
-├── k8s/
-│   ├── api-config.yaml   # Configurações da API
-│   └── worker-config.yaml # Configurações do Worker
-└── Tiltfile             # Configuração do Tilt
-```
-
-### Comandos Úteis
-
-```bash
-# Iniciar ambiente
-make tilt-up
-
-# Parar ambiente
-make tilt-down
-
-# Ver logs dos serviços
-make logs-services
-
-# Reiniciar serviços
-make restart-services
-
-# Limpar ambiente
-make clean
-``` 
+-   `make tilt-up`: Inicia o ambiente de desenvolvimento completo com Tilt (serviços Go + dependências Docker Compose).
+-   `make tilt-down`: Interrompe os serviços gerenciados pelo Tilt.
+-   `make logs-services`: Exibe os logs dos serviços Docker Compose (MySQL, Memcached, RabbitMQ).
+-   `make restart-services`: Reinicia os serviços Docker Compose.
+-   `make clean`: Limpa o ambiente de build e containers.
 
 ## Autor
 
