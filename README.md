@@ -143,18 +143,13 @@ O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em
 ## Acessando a Aplicação
 
 - API Server: http://localhost:8080
-- Health Check API: http://localhost:8080/health
-- Health Check Worker: http://localhost:8081/health
-- Healthz Endpoints (usados pelos probes):
-  - API: http://localhost:8080/healthz
-  - Worker: http://localhost:8081/healthz
 - Logs: Disponíveis no terminal do Tilt
 
 ## Características da Aplicação
 
 ### API Server
 - Servidor HTTP com logs estruturados usando Zap
-- Endpoint de health check (`/health`) e probe (`/healthz`)
+- Endpoints de probe (`/livez`, `/readyz`, `/healthz`)
 - Logs em formato JSON com timestamp em UTC-3
 
 ### Worker
@@ -162,7 +157,7 @@ O Tilt.dev é uma ferramenta que simplifica o desenvolvimento de aplicações em
 - Executa tarefa a cada minuto (configurável)
 - Logs estruturados com Zap
 - Timestamp em UTC-3 (horário de Brasília)
-- Endpoint de health check (`/health`) e probe (`/healthz`) em um pequeno servidor HTTP dedicado
+- Endpoints de probe (`/livez`, `/readyz`, `/healthz`) em um pequeno servidor HTTP dedicado
 
 ## Probes do Kubernetes
 
@@ -251,11 +246,6 @@ A aplicação expõe endpoints de saúde seguindo as melhores práticas do Kuber
   - Verifica se a aplicação iniciou corretamente
   - Similar ao liveness, mas com threshold mais alto
   - Usado pelo Kubernetes durante a inicialização do pod
-
-- `/health`: Endpoint legado para monitoramento
-  - Retorna informações detalhadas sobre a saúde da aplicação
-  - Pode ser usado para monitoramento externo
-  - Não é usado pelos probes do Kubernetes
 
 ## Graceful Shutdown
 
