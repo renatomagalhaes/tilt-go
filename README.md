@@ -175,15 +175,28 @@ startupProbe:
 
 ### Endpoints de Saúde
 
-A aplicação expõe dois endpoints de saúde:
+A aplicação expõe endpoints de saúde seguindo as melhores práticas do Kubernetes:
 
-- `/healthz`: Endpoint simples para probes do Kubernetes
-  - Retorna 200 OK se a aplicação está saudável
-  - Usado pelos probes do Kubernetes
+- `/livez`: Endpoint para Liveness Probe
+  - Verifica se o processo está vivo
+  - Deve ser rápido e leve
+  - Não verifica dependências externas
+  - Usado pelo Kubernetes para decidir se deve reiniciar o pod
 
-- `/health`: Endpoint mais detalhado para monitoramento
-  - Retorna informações adicionais sobre a saúde da aplicação
+- `/readyz`: Endpoint para Readiness Probe
+  - Verifica se a aplicação está pronta para receber tráfego
+  - Pode verificar dependências (banco de dados, cache, etc.)
+  - Usado pelo Kubernetes para balanceamento de carga
+
+- `/healthz`: Endpoint para Startup Probe
+  - Verifica se a aplicação iniciou corretamente
+  - Similar ao liveness, mas com threshold mais alto
+  - Usado pelo Kubernetes durante a inicialização do pod
+
+- `/health`: Endpoint legado para monitoramento
+  - Retorna informações detalhadas sobre a saúde da aplicação
   - Pode ser usado para monitoramento externo
+  - Não é usado pelos probes do Kubernetes
 
 ## Tilt.dev com Golang
 
