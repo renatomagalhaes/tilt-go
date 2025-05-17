@@ -10,7 +10,12 @@ dc_resource('memcached', labels=['cache'])
 dc_resource('rabbitmq', labels=['queue'])
 
 # Define quais contextos Kubernetes são permitidos
-# Neste caso, apenas o Docker Desktop está habilitado
+# Opções disponíveis:
+# - 'docker-desktop': Kubernetes integrado ao Docker Desktop (padrão)
+# - 'minikube': Ambiente Kubernetes local via Minikube
+# - 'microk8s': Kubernetes leve para desenvolvimento local
+# - 'kind': Kubernetes em Docker para testes e desenvolvimento
+# Para habilitar múltiplos contextos, use: allow_k8s_contexts(['docker-desktop', 'minikube', 'microk8s', 'kind'])
 allow_k8s_contexts('docker-desktop')
 
 # Configuração do servidor API
