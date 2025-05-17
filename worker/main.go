@@ -116,12 +116,6 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// Legacy health check endpoint (can be removed if not needed)
-	healthRouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Worker is healthy"))
-	})
-
 	healthServerAddr := fmt.Sprintf(":%s", port)
 	logger.Info("starting_health_server", zap.String("addr", healthServerAddr))
 
