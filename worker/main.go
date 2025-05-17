@@ -31,7 +31,14 @@ func initLogger(serviceName, version, environment string) {
 	config.EncodeLevel = zapcore.CapitalLevelEncoder                             // Remove color encoding from level
 
 	encoder := zapcore.NewJSONEncoder(config)
-	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), zapcore.InfoLevel)
+
+	// Determine log level based on environment variable
+	logLevel := zapcore.InfoLevel
+	if os.Getenv("DEBUG_LOGGING") == "true" {
+		logLevel = zapcore.DebugLevel
+	}
+
+	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), logLevel)
 
 	logger = zap.New(core, zap.AddCaller()).With(
 		zap.String("service", serviceName),
@@ -149,12 +156,12 @@ func main() {
 
 // executeCleanupJob simulates the cron task.
 func executeCleanupJob() {
-	logger.Info("cleanup_job_started", zap.String("job", "cleanup"))
+	logger.Debug("cleanup_job_started", zap.String("job", "cleanup"))
 	start := time.Now()
 	// Simulate a cleanup task
 	time.Sleep(5 * time.Second)
 	duration := time.Since(start).Seconds()
-	logger.Info("cleanup_job_completed",
+	logger.Debug("cleanup_job_completed",
 		zap.String("job", "cleanup"),
 		zap.Float64("duration", duration),
 	)

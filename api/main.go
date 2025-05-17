@@ -28,13 +28,22 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// initLogger initializes the Zap logger with structured logging and UTC-3 timezone.
 func initLogger(serviceName, version, environment string) {
 	config := zap.NewProductionEncoderConfig()
+	// Configure timestamp format with UTC-3 offset
 	config.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05-03:00") // RFC3339 with UTC-3 offset
 	config.EncodeLevel = zapcore.CapitalLevelEncoder                             // Remove color encoding from level
 
 	encoder := zapcore.NewJSONEncoder(config)
-	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), zapcore.InfoLevel)
+
+	// Determine log level based on environment variable
+	logLevel := zapcore.InfoLevel
+	if os.Getenv("DEBUG_LOGGING") == "true" {
+		logLevel = zapcore.DebugLevel
+	}
+
+	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), logLevel)
 
 	logger = zap.New(core, zap.AddCaller()).With(
 		zap.String("service", serviceName),
