@@ -20,7 +20,7 @@ tilt-up: install-tilt
 # Start development environment with debug logging
 tilt-up-debug: install-tilt
 	@echo "Iniciando ambiente de desenvolvimento com logs de debug na porta 10351..."
-	@DEBUG_LOGGING=true tilt up --debug --port 10351
+	@tilt up --debug --port 10351
 
 # Stop development environment
 tilt-down:

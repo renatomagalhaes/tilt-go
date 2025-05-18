@@ -21,12 +21,15 @@ allow_k8s_contexts('docker-desktop')
 # Configuração do servidor API
 docker_build_with_restart(
     'api-server',                    # Nome da imagem Docker
-    './api',                         # Diretório do código fonte
+    '.',                             # Diretório do código fonte (contexto de build)
     dockerfile='api/Dockerfile.dev', # Caminho do Dockerfile
-    entrypoint=["/app/api-server"],
+    # Definindo o entrypoint usando o caminho do módulo para o pacote
+    entrypoint=["go", "run", "github.com/renatomagalhaes/tilt-go/api"],
     live_update=[
-        sync('./api', '/app'),
-        run('cd /app && go mod tidy && go build -o /app/api-server .'),
+        sync('./api', '/app/api'), # Sincronizar apenas o diretório api
+        sync('./internal', '/app/internal'), # Sincronizar o diretório internal
+        # O comando run agora usa go run com o caminho do módulo para o pacote
+        run('go run github.com/renatomagalhaes/tilt-go/api'),
     ]
 )
 
@@ -38,12 +41,15 @@ k8s_resource('api-server', port_forwards=8080, labels=['api'])
 # Configuração do Worker
 docker_build_with_restart(
     'worker-server',                 # Nome da imagem Docker
-    './worker',                      # Diretório do código fonte
+    '.',                      # Diretório do código fonte (contexto de build)
     dockerfile='worker/Dockerfile.dev',  # Caminho do Dockerfile
-    entrypoint=["/app/worker-server"],
+    # Definindo o entrypoint usando o caminho do módulo para o pacote
+    entrypoint=["go", "run", "github.com/renatomagalhaes/tilt-go/worker"],
     live_update=[
-        sync('./worker', '/app'),
-        run('cd /app && go mod tidy && go build -o /app/worker-server .'),
+        sync('./worker', '/app/worker'), # Sincronizar apenas o diretório worker
+        sync('./internal', '/app/internal'), # Sincronizar o diretório internal
+        # O comando run agora usa go run com o caminho do módulo para o pacote
+        run('go run github.com/renatomagalhaes/tilt-go/worker'),
     ]
 )
 

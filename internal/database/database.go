@@ -51,3 +51,27 @@ func (db *DB) GetRandomQuote() (*Quote, error) {
 func (db *DB) CheckConnection() error {
 	return db.Ping()
 }
+
+func (db *DB) GetRandomQuotes(limit int) ([]Quote, error) {
+	query := "SELECT id, quote, author, created_at FROM quotes ORDER BY RAND() LIMIT ?"
+	rows, err := db.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("error querying random quotes: %v", err)
+	}
+	defer rows.Close()
+
+	var quotes []Quote
+	for rows.Next() {
+		var quote Quote
+		if err := rows.Scan(&quote.ID, &quote.Quote, &quote.Author, &quote.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning quote row: %v", err)
+		}
+		quotes = append(quotes, quote)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating quote rows: %v", err)
+	}
+
+	return quotes, nil
+}

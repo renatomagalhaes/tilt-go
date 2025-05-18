@@ -8,12 +8,17 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy go mod files and source code
+# Copy go mod files from the root of the build context to the WORKDIR
 COPY go.mod go.sum ./
-COPY . .
 
-# Download dependencies and build the application
-RUN go mod download && go mod tidy && go build -o /app/worker-server .
+# Download dependencies
+RUN go mod download
+
+# Copy the internal package from the root of the build context
+COPY internal/ ./internal/
+
+# Copy the source code for this service
+COPY worker/. ./worker/
 
 # Expose port
 EXPOSE 8081

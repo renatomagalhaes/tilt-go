@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,16 +10,33 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bradfitz/gomemcache/memcache"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/renatomagalhaes/tilt-go/internal/database"
 )
 
-var logger *zap.Logger
+var (
+	logger          *zap.Logger
+	memcachedClient *memcache.Client
+	db              *database.DB
+)
 
 // getEnv retrieves an environment variable or returns a default value.
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	return defaultValue
+}
+
+// getEnvInt retrieves an integer environment variable or returns a default value.
+func getEnvInt(key string, defaultValue int) int {
+	if valueStr, exists := os.LookupEnv(key); exists {
+		if value, err := strconv.Atoi(valueStr); err == nil {
+			return value
+		}
 	}
 	return defaultValue
 }
@@ -56,6 +74,10 @@ func main() {
 	environment := getEnv("ENVIRONMENT", "development")
 	version := getEnv("VERSION", "unknown")
 	schedulerIntervalStr := getEnv("SCHEDULER_INTERVAL", "1")
+	memcachedHost := getEnv("MEMCACHED_HOST", "localhost")
+	memcachedPort := getEnv("MEMCACHED_PORT", "11211")
+	quoteBatchSize := getEnvInt("QUOTE_BATCH_SIZE", 500)       // Default to 500 quotes
+	quoteCacheTTL := getEnvInt("QUOTE_CACHE_TTL_SECONDS", 300) // Default to 5 minutes (300 seconds)
 
 	// Initialize the logger with service context
 	initLogger("worker", version, environment)
@@ -63,7 +85,32 @@ func main() {
 	logger.Info("service_started",
 		zap.String("port", port),
 		zap.String("scheduler_interval", schedulerIntervalStr),
+		zap.String("memcached_addr", fmt.Sprintf("%s:%s", memcachedHost, memcachedPort)),
+		zap.Int("quote_batch_size", quoteBatchSize),
+		zap.Int("quote_cache_ttl_seconds", quoteCacheTTL),
 	)
+
+	// Initialize Memcached client
+	memcachedClient = memcache.New(fmt.Sprintf("%s:%s", memcachedHost, memcachedPort))
+	logger.Info("memcached_client_initialized")
+
+	// Initialize database connection
+	var err error
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "3306")
+	dbUser := getEnv("DB_USER", "root")
+	dbPass := getEnv("DB_PASS", "root")
+	dbName := getEnv("DB_NAME", "app")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		dbUser, dbPass, dbHost, dbPort, dbName)
+	db, err = database.NewDB(dsn)
+	if err != nil {
+		logger.Fatal("failed_to_connect_to_database",
+			zap.Error(err),
+		)
+	}
+	defer db.Close()
 
 	// Parse scheduler interval
 	schedulerInterval, err := strconv.Atoi(schedulerIntervalStr)
@@ -77,17 +124,25 @@ func main() {
 	}
 
 	// --- Simple Scheduler using Ticker ---
+	// Use a shorter interval for cache refresh than the cleanup job
+	cacheRefreshInterval := time.Duration(quoteCacheTTL) * time.Second
+	cacheTicker := time.NewTicker(cacheRefreshInterval)
+
 	ticker := time.NewTicker(time.Duration(schedulerInterval) * time.Minute)
 	done := make(chan bool)
 
 	go func() {
-		logger.Info("scheduler_started", zap.Int("interval_minutes", schedulerInterval))
-		// Execute the task immediately on startup
-		executeCleanupJob()
+		logger.Info("scheduler_started", zap.Int("cleanup_interval_minutes", schedulerInterval), zap.Duration("cache_refresh_interval", cacheRefreshInterval))
+
+		// Execute cache refresh immediately on startup
+		refreshQuoteCache(quoteBatchSize, quoteCacheTTL)
+
 		for {
 			select {
 			case <-ticker.C:
 				executeCleanupJob()
+			case <-cacheTicker.C:
+				refreshQuoteCache(quoteBatchSize, quoteCacheTTL)
 			case <-done:
 				logger.Info("scheduler_stopped")
 				return
@@ -139,8 +194,9 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	// Stop the ticker and signal done to the scheduler goroutine
+	// Stop the tickers and signal done to the scheduler goroutine
 	ticker.Stop()
+	cacheTicker.Stop()
 	done <- true
 
 	logger.Info("service_shutting_down",
@@ -152,6 +208,45 @@ func main() {
 	logger.Info("service_stopped",
 		zap.String("service", "worker"),
 	)
+}
+
+// refreshQuoteCache fetches a batch of quotes from the database and caches them in Memcached.
+func refreshQuoteCache(batchSize, ttlSeconds int) {
+	logger.Info("refreshing_quote_cache", zap.Int("batch_size", batchSize), zap.Int("ttl_seconds", ttlSeconds))
+
+	// Fetch quotes from database
+	quotes, err := db.GetRandomQuotes(batchSize)
+	if err != nil {
+		logger.Error("failed_to_fetch_quotes_for_cache",
+			zap.Error(err),
+		)
+		return
+	}
+
+	// Serialize quotes to JSON
+	quotedata, err := json.Marshal(quotes)
+	if err != nil {
+		logger.Error("failed_to_marshal_quotes",
+			zap.Error(err),
+		)
+		return
+	}
+
+	// Store in Memcached
+	item := &memcache.Item{
+		Key:        "quote_batch", // Consistent cache key
+		Value:      quotedata,
+		Expiration: int32(ttlSeconds),
+	}
+
+	if err := memcachedClient.Set(item); err != nil {
+		logger.Error("failed_to_set_quote_cache",
+			zap.Error(err),
+		)
+		return
+	}
+
+	logger.Info("quote_cache_refreshed", zap.Int("num_quotes", len(quotes)))
 }
 
 // executeCleanupJob simulates the cron task.

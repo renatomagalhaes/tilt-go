@@ -8,15 +8,20 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy go mod files and source code
+# Copy go mod files from the root of the build context to the WORKDIR
 COPY go.mod go.sum ./
-COPY . .
 
-# Download dependencies and build the application
-RUN go mod download && go mod tidy && go build -o /app/api-server .
+# Download dependencies
+RUN go mod download
+
+# Copy the internal package from the root of the build context
+COPY internal/ ./internal/
+
+# Copy the source code for this service
+COPY api/. ./api/
 
 # Expose port
 EXPOSE 8080
 
-# The entrypoint will be set by Tilt
+# O entrypoint será definido pelo Tilt/restart_process
 # CMD ["go", "run", "main.go"] 
