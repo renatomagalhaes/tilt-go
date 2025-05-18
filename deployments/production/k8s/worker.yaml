@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-server
+  labels:
+    app: worker-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker-server
+  template:
+    metadata:
+      labels:
+        app: worker-server
+    spec:
+      containers:
+      - name: worker-server
+        image: worker-server:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        envFrom:
+        - configMapRef:
+            name: worker-config
+        - secretRef:
+            name: worker-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-server
+spec:
+  selector:
+    app: worker-server
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP 

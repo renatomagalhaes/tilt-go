@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+data:
+  APP_ENV: "production"
+  APP_PORT: "8080"
+  LOG_LEVEL: "info"
+  DEBUG_LOGGING: "false"
+  MYSQL_HOST: "mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_DATABASE: "app"
+  MYSQL_USER: "app"
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: "app"
+  RABBITMQ_VHOST: "/"
+  MEMCACHED_HOST: "memcached"
+  MEMCACHED_PORT: "11211"
+  QUOTE_BATCH_SIZE: "100"
+  CACHE_EXPIRATION: "3600" 

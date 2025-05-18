@@ -1,4 +1,4 @@
-.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt test-shutdown-api test-shutdown-worker logs-services restart-services
+.PHONY: tilt-up tilt-down clean build test install-tilt help check-tilt test-shutdown-api test-shutdown-worker logs-services restart-services migrate-up migrate-down
 
 # Check if Tilt is installed
 check-tilt:
@@ -15,17 +15,12 @@ install-tilt: check-tilt
 # Start development environment
 tilt-up: install-tilt
 	@echo "Iniciando ambiente de desenvolvimento na porta 10351..."
-	@tilt up --port 10351
-
-# Start development environment with debug logging
-tilt-up-debug: install-tilt
-	@echo "Iniciando ambiente de desenvolvimento com logs de debug na porta 10351..."
-	@tilt up --debug --port 10351
+	@tilt up --port 10351 -f deployments/dev/Tiltfile
 
 # Stop development environment
 tilt-down:
 	@echo "Parando ambiente de desenvolvimento..."
-	@tilt down
+	@tilt down -f deployments/dev/Tiltfile
 
 # Build the application
 build:
@@ -52,27 +47,38 @@ test-shutdown-worker:
 # Development services
 logs-services:
 	@echo "Mostrando logs dos serviços..."
-	@docker-compose -f docker-compose.dev.yml logs -f
+	@cd deployments/dev && docker-compose logs -f
 
 restart-services:
 	@echo "Reiniciando serviços..."
-	@docker-compose -f docker-compose.dev.yml restart
+	@cd deployments/dev && docker-compose restart
+
+# Database migrations
+migrate-up:
+	@echo "Aplicando migrações..."
+	@cd deployments/dev && docker-compose exec mysql mysql -uroot -proot app < migrations/001_create_quotes_table.sql
+	@cd deployments/dev && docker-compose exec mysql mysql -uroot -proot app < migrations/002_seed_quotes_data.sql
+
+migrate-down:
+	@echo "Revertendo migrações..."
+	@cd deployments/dev && docker-compose exec mysql mysql -uroot -proot app -e "DROP TABLE IF EXISTS quotes;"
 
 # Clean up
 clean:
 	@echo "Limpando ambiente..."
-	@docker-compose -f docker-compose.dev.yml down -v
-	@tilt down
+	@cd deployments/dev && docker-compose down -v
+	@tilt down -f deployments/dev/Tiltfile
 
 # Help command
 help:
 	@echo "Comandos disponíveis:"
-	@echo "  make tilt-up          - Inicia o ambiente de desenvolvimento (logs INFO)"
-	@echo "  make tilt-up-debug    - Inicia o ambiente de desenvolvimento (logs DEBUG)"
+	@echo "  make tilt-up          - Inicia o ambiente de desenvolvimento"
 	@echo "  make tilt-down        - Para o ambiente de desenvolvimento"
 	@echo "  make build           - Compila a aplicação"
 	@echo "  make test            - Executa os testes"
 	@echo "  make clean           - Limpa o ambiente"
 	@echo "  make logs-services   - Mostra logs dos serviços"
 	@echo "  make restart-services - Reinicia os serviços"
+	@echo "  make migrate-up      - Aplica as migrations SQL de dev"
+	@echo "  make migrate-down    - Remove as tabelas criadas nas migrations"
 	@echo "  make help            - Mostra esta mensagem" 
